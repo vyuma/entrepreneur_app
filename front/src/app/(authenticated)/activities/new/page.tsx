@@ -68,13 +68,14 @@ export default function NewActivityPage() {
           <textarea
             name="learning"
             rows={4}
+            placeholder="賞の内容:優秀賞 学んだこと:"
             required
             className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
           />
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">全体の参加者数</label>
+          <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">全体の参加者数（コンペの場合は応募者数）</label>
           <input
             type="number"
             name="total_participants"
