@@ -64,7 +64,7 @@ export default function NewActivityPage() {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">そこから学んだこと</label>
+          <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">そこから学んだこと/賞の内容</label>
           <textarea
             name="learning"
             rows={4}
