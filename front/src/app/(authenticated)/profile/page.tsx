@@ -11,7 +11,12 @@ type User = {
 
 export default async function ProfilePage() {
   const session = await auth()
-  const user: User = await apiFetch(`/api/users/me?discord_id=${session!.user.discordId}`)
+  let user: User = { display_name: null, bio: null, business_desc: null, sns_links: null }
+  try {
+    user = await apiFetch(`/api/users/me?discord_id=${session!.user.discordId}`)
+  } catch {
+    // バックエンド未起動時は空フォーム
+  }
 
   return (
     <div className="mx-auto max-w-xl flex flex-col gap-6">

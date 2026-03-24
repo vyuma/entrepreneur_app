@@ -46,13 +46,21 @@ def _sync_activity_message(
 
 
 @router.get("", response_model=list[ActivityResponse])
-def list_activities(db: Session = Depends(get_db), _=Depends(verify_token)):
-    return (
-        db.query(Activity)
-        .filter(Activity.status == "approved")
-        .order_by(Activity.created_at.desc())
-        .all()
-    )
+def list_activities(
+    discord_id: str | None = None,
+    db: Session = Depends(get_db),
+    _=Depends(verify_token),
+):
+    q = db.query(Activity)
+    if discord_id:
+        user = db.query(User).filter(User.discord_id == discord_id).first()
+        if user:
+            q = q.filter(Activity.user_id == user.id)
+        else:
+            return []
+    else:
+        q = q.filter(Activity.status == "approved")
+    return q.order_by(Activity.created_at.desc()).all()
 
 
 @router.post("", response_model=ActivityResponse, status_code=status.HTTP_201_CREATED)

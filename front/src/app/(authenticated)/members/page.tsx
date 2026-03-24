@@ -18,7 +18,12 @@ export default async function MembersPage({
   searchParams: Promise<{ sort?: string }>
 }) {
   const { sort = "created_at" } = await searchParams
-  const members: Member[] = await apiFetch(`/api/members?sort=${sort}`)
+  let members: Member[] = []
+  try {
+    members = await apiFetch(`/api/members?sort=${sort}`)
+  } catch {
+    // バックエンド未起動時は空リスト
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -39,6 +44,10 @@ export default async function MembersPage({
           </Link>
         </div>
       </div>
+
+      {members.length === 0 && (
+        <p className="text-zinc-500 dark:text-zinc-400">メンバーはまだいません。</p>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {members.map((m) => (
