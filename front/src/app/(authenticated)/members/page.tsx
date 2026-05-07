@@ -1,26 +1,26 @@
-import { apiFetch } from "@/lib/api"
-import Image from "next/image"
-import Link from "next/link"
+import Image from "next/image";
+import Link from "next/link";
+import { apiFetch } from "@/lib/api";
 
 type Member = {
-  id: string
-  username: string
-  display_name: string | null
-  avatar_url: string | null
-  bio: string | null
-  created_at: string
-  total_points: number
-}
+  id: string;
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  bio: string | null;
+  created_at: string;
+  total_points: number;
+};
 
 export default async function MembersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string }>
+  searchParams: Promise<{ sort?: string }>;
 }) {
-  const { sort = "created_at" } = await searchParams
-  let members: Member[] = []
+  const { sort = "created_at" } = await searchParams;
+  let members: Member[] = [];
   try {
-    members = await apiFetch(`/api/members?sort=${sort}`)
+    members = await apiFetch(`/api/members?sort=${sort}`);
   } catch {
     // バックエンド未起動時は空リスト
   }
@@ -28,7 +28,9 @@ export default async function MembersPage({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-black dark:text-zinc-50">メンバー一覧</h1>
+        <h1 className="text-2xl font-semibold text-black dark:text-zinc-50">
+          メンバー一覧
+        </h1>
         <div className="flex gap-2 text-sm">
           <Link
             href="/members?sort=created_at"
@@ -46,7 +48,9 @@ export default async function MembersPage({
       </div>
 
       {members.length === 0 && (
-        <p className="text-zinc-500 dark:text-zinc-400">メンバーはまだいません。</p>
+        <p className="text-zinc-500 dark:text-zinc-400">
+          メンバーはまだいません。
+        </p>
       )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -75,10 +79,14 @@ export default async function MembersPage({
               </div>
             </div>
             {m.bio && (
-              <p className="text-sm text-zinc-600 dark:text-zinc-400 line-clamp-2">{m.bio}</p>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400 line-clamp-2">
+                {m.bio}
+              </p>
             )}
             <div className="flex items-center justify-between text-sm text-zinc-500 dark:text-zinc-400">
-              <span>参加: {new Date(m.created_at).toLocaleDateString("ja-JP")}</span>
+              <span>
+                参加: {new Date(m.created_at).toLocaleDateString("ja-JP")}
+              </span>
               <span className="font-medium text-black dark:text-zinc-50">
                 {m.total_points} pt
               </span>
@@ -87,5 +95,5 @@ export default async function MembersPage({
         ))}
       </div>
     </div>
-  )
+  );
 }

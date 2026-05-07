@@ -1,30 +1,41 @@
-import { auth } from "@/auth"
-import { apiFetch } from "@/lib/api"
-import { updateProfile } from "@/actions/profile"
+import { updateProfile } from "@/actions/profile";
+import { auth } from "@/auth";
+import { apiFetch } from "@/lib/api";
 
 type User = {
-  display_name: string | null
-  bio: string | null
-  business_desc: string | null
-  sns_links: Record<string, string> | null
-}
+  display_name: string | null;
+  bio: string | null;
+  business_desc: string | null;
+  sns_links: Record<string, string> | null;
+};
 
 export default async function ProfilePage() {
-  const session = await auth()
-  let user: User = { display_name: null, bio: null, business_desc: null, sns_links: null }
+  const session = await auth();
+  let user: User = {
+    display_name: null,
+    bio: null,
+    business_desc: null,
+    sns_links: null,
+  };
   try {
-    user = await apiFetch(`/api/users/me?discord_id=${session!.user.discordId}`)
+    user = await apiFetch(
+      `/api/users/me?discord_id=${session!.user.discordId}`,
+    );
   } catch {
     // バックエンド未起動時は空フォーム
   }
 
   return (
     <div className="mx-auto max-w-xl flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold text-black dark:text-zinc-50">プロフィール編集</h1>
+      <h1 className="text-2xl font-semibold text-black dark:text-zinc-50">
+        プロフィール編集
+      </h1>
 
       <form action={updateProfile} className="flex flex-col gap-5">
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">表示名</label>
+          <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            表示名
+          </label>
           <input
             name="display_name"
             defaultValue={user.display_name ?? ""}
@@ -33,7 +44,9 @@ export default async function ProfilePage() {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">一言自己紹介</label>
+          <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            一言自己紹介
+          </label>
           <input
             name="bio"
             defaultValue={user.bio ?? ""}
@@ -42,7 +55,9 @@ export default async function ProfilePage() {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">事業・活動内容</label>
+          <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            事業・活動内容
+          </label>
           <textarea
             name="business_desc"
             rows={4}
@@ -73,5 +88,5 @@ export default async function ProfilePage() {
         </button>
       </form>
     </div>
-  )
+  );
 }

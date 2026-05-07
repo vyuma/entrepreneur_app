@@ -3,11 +3,25 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* NueStar ブランドカラー（ロゴ由来） */
+  --brand-green: #2ea84a;
+  --brand-green-soft: #5dc26f;
+  --brand-orange: #e85a1c;
+  --brand-orange-soft: #f57e3e;
+  --brand-blue: #1d6fce;
+  --brand-yellow: #ffc83a;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-brand-green: var(--brand-green);
+  --color-brand-green-soft: var(--brand-green-soft);
+  --color-brand-orange: var(--brand-orange);
+  --color-brand-orange-soft: var(--brand-orange-soft);
+  --color-brand-blue: var(--brand-blue);
+  --color-brand-yellow: var(--brand-yellow);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -16,6 +30,10 @@
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+    --brand-green: #4cc266;
+    --brand-green-soft: #6fd183;
+    --brand-orange: #f57e3e;
+    --brand-orange-soft: #f99868;
   }
 }
 
@@ -23,4 +41,78 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* テキスト用のブランドグラデーション (緑→オレンジ) */
+.text-brand-gradient {
+  background-image: linear-gradient(
+    90deg,
+    var(--brand-green) 0%,
+    var(--brand-green) 45%,
+    var(--brand-orange) 70%,
+    var(--brand-orange) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ティア枠用のシマーアニメーション (ダイヤモンドティア) */
+@keyframes tier-shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+.tier-shimmer {
+  background-size: 200% 200%;
+  animation: tier-shimmer 4s linear infinite;
+}
+
+/* ポイントヒーロー: 円周のグラデーションをゆっくり回転 */
+@keyframes ring-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 円の背後で柔らかく拍動するグロウ */
+@keyframes points-glow {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.08);
+  }
+}
+
+/* 各ステータス行のスタガード表示 */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ネオンティア用: グロウの高速点滅 */
+@keyframes neon-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 6px #00ffff) drop-shadow(0 0 14px #ff00ff);
+  }
+  50% {
+    filter: drop-shadow(0 0 12px #ff00ff) drop-shadow(0 0 22px #00ff66);
+  }
 }

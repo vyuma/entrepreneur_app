@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 export default function Error({ reset }: { error: Error; reset: () => void }) {
   return (
@@ -13,5 +13,5 @@ export default function Error({ reset }: { error: Error; reset: () => void }) {
         再試行
       </button>
     </div>
-  )
+  );
 }
