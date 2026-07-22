@@ -116,26 +116,86 @@ def build_activity_components(activity_id: str) -> list[dict]:
     ]
 
 
+# Discord のカテゴリには最大50チャンネルまでしか入らない
+CATEGORY_CHANNEL_LIMIT = 50
+
+
+def _find_available_category(client: httpx.Client) -> str | None:
+    """空きのあるカテゴリIDを返す。
+
+    既定のカテゴリが満杯なら「(2)」「(3)」…と連番のカテゴリを探し、
+    無ければ新しく作る。50人を超えても作成に失敗しないようにするための処理。
+    """
+    res = client.get(
+        f"{DISCORD_API}/guilds/{settings.DISCORD_GUILD_ID}/channels",
+        headers=_headers(),
+    )
+    res.raise_for_status()
+    channels = res.json()
+
+    # parent_id ごとの子チャンネル数
+    counts: dict[str, int] = {}
+    for ch in channels:
+        parent = ch.get("parent_id")
+        if parent:
+            counts[parent] = counts.get(parent, 0) + 1
+
+    base_id = settings.DISCORD_CATEGORY_ID
+    if counts.get(base_id, 0) < CATEGORY_CHANNEL_LIMIT:
+        return base_id
+
+    # 既定カテゴリの名前を調べ、続き番号のカテゴリを探す
+    base = next((c for c in channels if c["id"] == base_id), None)
+    base_name = (base or {}).get("name", "times")
+
+    # 既定カテゴリ自身は除いて、続き番号のカテゴリだけを集める
+    overflow = [
+        c
+        for c in channels
+        if c.get("type") == 4
+        and c["id"] != base_id
+        and c.get("name", "").startswith(base_name)
+    ]
+    for cat in sorted(overflow, key=lambda c: c.get("position", 0)):
+        if counts.get(cat["id"], 0) < CATEGORY_CHANNEL_LIMIT:
+            return cat["id"]
+
+    # すべて満杯なら新しいカテゴリを作る
+    created = client.post(
+        f"{DISCORD_API}/guilds/{settings.DISCORD_GUILD_ID}/channels",
+        headers=_headers(),
+        json={"name": f"{base_name} ({len(overflow) + 2})", "type": 4},
+    )
+    created.raise_for_status()
+    return created.json()["id"]
+
+
 def create_user_channel(discord_id: str, username: str) -> str:
-    """専用チャンネルを作成してチャンネルIDを返す"""
+    """専用チャンネルを作成してチャンネルIDを返す。
+
+    チャンネルは全員が閲覧・書き込みできる（応援やコメントを送れるようにするため）。
+    """
     bot_id = get_bot_id()
-    VIEW_SEND = str(1 << 10 | 1 << 11)  # VIEW_CHANNEL + SEND_MESSAGES
+    VIEW = 1 << 10  # VIEW_CHANNEL
+    SEND = 1 << 11  # SEND_MESSAGES
 
     with httpx.Client() as client:
+        parent_id = _find_available_category(client)
+
         res = client.post(
             f"{DISCORD_API}/guilds/{settings.DISCORD_GUILD_ID}/channels",
             headers=_headers(),
             json={
                 "name": f"times-{username}",
                 "type": 0,
-                "parent_id": settings.DISCORD_CATEGORY_ID,
+                "parent_id": parent_id,
                 "permission_overwrites": [
-                    # @everyone: 閲覧を拒否
-                    {"id": settings.DISCORD_GUILD_ID, "type": 0, "deny": "1024"},
+                    # @everyone: 閲覧・書き込みを許可
+                    {"id": settings.DISCORD_GUILD_ID, "type": 0, "allow": str(VIEW | SEND)},
                     # 本人: 閲覧・送信を許可
-                    {"id": discord_id, "type": 1, "allow": VIEW_SEND},
+                    {"id": discord_id, "type": 1, "allow": str(VIEW | SEND)},
                     # Bot: 閲覧・送信を許可
-                    {"id": bot_id, "type": 1, "allow": VIEW_SEND},
+                    {"id": bot_id, "type": 1, "allow": str(VIEW | SEND)},
                 ],
             },
         )
@@ -283,3 +343,27 @@ def post_intro(
             headers=_headers(),
             json={"embeds": [embed]},
         )
+
+
+def unlock_user_channel(channel_id: str, discord_id: str) -> None:
+    """既存の times チャンネルを全員が閲覧・書き込みできる状態に直す。
+
+    以前は @everyone の閲覧を拒否していたため鍵付きになっていた。
+    """
+    bot_id = get_bot_id()
+    VIEW = 1 << 10
+    SEND = 1 << 11
+
+    with httpx.Client() as client:
+        res = client.patch(
+            f"{DISCORD_API}/channels/{channel_id}",
+            headers=_headers(),
+            json={
+                "permission_overwrites": [
+                    {"id": settings.DISCORD_GUILD_ID, "type": 0, "allow": str(VIEW | SEND)},
+                    {"id": discord_id, "type": 1, "allow": str(VIEW | SEND)},
+                    {"id": bot_id, "type": 1, "allow": str(VIEW | SEND)},
+                ]
+            },
+        )
+        res.raise_for_status()
