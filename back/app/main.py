@@ -3,7 +3,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.database import engine, Base
 from app.models import *  # noqa: F401, F403 — Baseにモデルを登録
-from app.routers import users, members, profile, activities, time_logs, points
+from app.routers import (
+    users,
+    members,
+    profile,
+    activities,
+    time_logs,
+    points,
+    competitions,
+    dashboard,
+    portfolio,
+)
 
 
 @asynccontextmanager
@@ -29,6 +39,9 @@ app.include_router(profile.router, prefix="/api/profile", tags=["profile"])
 app.include_router(activities.router, prefix="/api/activities", tags=["activities"])
 app.include_router(time_logs.router, prefix="/api/time-logs", tags=["time-logs"])
 app.include_router(points.router, prefix="/api/points", tags=["points"])
+app.include_router(competitions.router, prefix="/api/competitions", tags=["competitions"])
+app.include_router(dashboard.router, prefix="/api/dashboard", tags=["dashboard"])
+app.include_router(portfolio.router, prefix="/api/portfolio", tags=["portfolio"])
 
 
 @app.get("/health")

@@ -14,3 +14,7 @@ class MemberResponse(BaseModel):
     sns_links: Optional[dict]
     created_at: datetime
     total_points: int = 0
+    total_hours: int = 0
+    skills: list[str] = []
+    achievement_count: int = 0
+    portfolio_public: bool = False

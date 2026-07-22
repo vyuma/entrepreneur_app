@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     DISCORD_CATEGORY_ID: str
     DISCORD_INTRO_CHANNEL_ID: Optional[str] = None
     INTERNAL_API_SECRET: str
+    # nuestar コンペAPI 用のトークン（x-admin-token ヘッダに乗せる）
+    ADMIN_API_TOKEN: Optional[str] = None
 
 
 settings = Settings()

@@ -87,6 +87,47 @@ function PointsIcon(props: IconProps) {
   );
 }
 
+function CompetitionsIcon(props: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      <rect x="3" y="4.5" width="18" height="16" rx="2" />
+      <path d="M3 9.5h18" />
+      <path d="M8 3v3" />
+      <path d="M16 3v3" />
+      <circle cx="8.5" cy="14" r="1" />
+      <circle cx="15.5" cy="17" r="1" />
+    </svg>
+  );
+}
+
+function AchievementsIcon(props: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      <path d="M4 5h5v15H4z" />
+      <path d="M9.5 5h5v10h-5z" />
+      <path d="M15 5h5v7h-5z" />
+    </svg>
+  );
+}
+
 function ProfileIcon(props: IconProps) {
   return (
     <svg
@@ -116,6 +157,8 @@ export default async function AuthenticatedLayout({
 
   const navItems = [
     { href: "/dashboard", label: "ダッシュボード", Icon: DashboardIcon },
+    { href: "/competitions", label: "コンペ", Icon: CompetitionsIcon },
+    { href: "/achievements", label: "成果", Icon: AchievementsIcon },
     { href: "/members", label: "メンバー", Icon: MembersIcon },
     { href: "/activities", label: "活動実績", Icon: ActivitiesIcon },
     { href: "/points", label: "ポイント", Icon: PointsIcon },

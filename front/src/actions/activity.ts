@@ -1,18 +1,18 @@
-"use server"
+"use server";
 
-import { auth } from "@/auth"
-import { apiFetch } from "@/lib/api"
-import { redirect } from "next/navigation"
+import { redirect } from "next/navigation";
+import { auth } from "@/auth";
+import { apiFetch } from "@/lib/api";
 
 export async function createActivity(formData: FormData) {
-  const session = await auth()
-  if (!session?.user.discordId) throw new Error("Not authenticated")
+  const session = await auth();
+  if (!session?.user.discordId) throw new Error("Not authenticated");
 
-  const activityTypes = formData.getAll("activity_type") as string[]
-  const url = formData.get("url") as string | null
-  const learning = formData.get("learning") as string
+  const activityTypes = formData.getAll("activity_type") as string[];
+  const url = formData.get("url") as string | null;
+  const learning = formData.get("learning") as string;
 
-  const claimText = url ? `${learning}\n\nURL: ${url}` : learning
+  const claimText = url ? `${learning}\n\nURL: ${url}` : learning;
 
   await apiFetch(`/api/activities?discord_id=${session.user.discordId}`, {
     method: "POST",
@@ -24,7 +24,7 @@ export async function createActivity(formData: FormData) {
       claim_text: claimText,
       total_participants: Number(formData.get("total_participants")),
     }),
-  })
+  });
 
-  redirect("/activities")
+  redirect("/activities");
 }

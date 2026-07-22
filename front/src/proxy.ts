@@ -1,11 +1,11 @@
-import { auth } from "@/auth"
-import { NextResponse } from "next/server"
-import type { NextRequest } from "next/server"
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+import { auth } from "@/auth";
 
 const SESSION_COOKIE_NAMES = [
   "authjs.session-token",
   "__Secure-authjs.session-token",
-]
+];
 
 // PKCE等の認証フロー中 Cookie は削除しない
 const PKCE_COOKIE_NAMES = [
@@ -15,34 +15,38 @@ const PKCE_COOKIE_NAMES = [
   "__Secure-authjs.state",
   "authjs.nonce",
   "__Secure-authjs.nonce",
-]
+];
 
 function hasSessionCookie(request: NextRequest) {
-  return SESSION_COOKIE_NAMES.some((name) => request.cookies.has(name))
+  return SESSION_COOKIE_NAMES.some((name) => request.cookies.has(name));
 }
 
 function hasPkceCookie(request: NextRequest) {
-  return PKCE_COOKIE_NAMES.some((name) => request.cookies.has(name))
+  return PKCE_COOKIE_NAMES.some((name) => request.cookies.has(name));
 }
 
 export async function proxy(request: NextRequest) {
-  const session = await auth()
-  const { pathname } = request.nextUrl
-  const isPublic = pathname === "/" || pathname.startsWith("/auth")
+  const session = await auth();
+  const { pathname } = request.nextUrl;
+  // 公開ポートフォリオは未ログインでも閲覧できる（非公開かどうかはAPI側で判定）
+  const isPublic =
+    pathname === "/" ||
+    pathname.startsWith("/auth") ||
+    pathname.startsWith("/portfolio");
 
   // 古いセッションCookieが残っていてPKCEフロー中でない場合のみ削除
   if (!session && hasSessionCookie(request) && !hasPkceCookie(request)) {
-    const res = NextResponse.redirect(new URL("/", request.url))
+    const res = NextResponse.redirect(new URL("/", request.url));
     for (const name of SESSION_COOKIE_NAMES) {
-      res.cookies.delete(name)
+      res.cookies.delete(name);
     }
-    return res
+    return res;
   }
 
   if (!session && !isPublic) {
-    return NextResponse.redirect(new URL("/", request.url))
+    return NextResponse.redirect(new URL("/", request.url));
   }
-  return NextResponse.next()
+  return NextResponse.next();
 }
 
 export const config = {
@@ -50,4 +54,4 @@ export const config = {
   matcher: [
     "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|woff|woff2)$).*)",
   ],
-}
+};

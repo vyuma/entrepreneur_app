@@ -1,26 +1,35 @@
 import { updateProfile } from "@/actions/profile";
 import { auth } from "@/auth";
 import { apiFetch } from "@/lib/api";
+import SkillEditor, { type Skill } from "./SkillEditor";
 
 type User = {
+  id: string | null;
   display_name: string | null;
   bio: string | null;
   business_desc: string | null;
   sns_links: Record<string, string> | null;
+  portfolio_public: boolean;
 };
 
 export default async function ProfilePage() {
   const session = await auth();
+  const discordId = session!.user.discordId;
+
   let user: User = {
+    id: null,
     display_name: null,
     bio: null,
     business_desc: null,
     sns_links: null,
+    portfolio_public: false,
   };
+  let skills: Skill[] = [];
   try {
-    user = await apiFetch(
-      `/api/users/me?discord_id=${session!.user.discordId}`,
-    );
+    [user, skills] = await Promise.all([
+      apiFetch(`/api/users/me?discord_id=${discordId}`),
+      apiFetch(`/api/members/skills/me?discord_id=${discordId}`),
+    ]);
   } catch {
     // バックエンド未起動時は空フォーム
   }
@@ -87,6 +96,12 @@ export default async function ProfilePage() {
           保存して自己紹介を投稿
         </button>
       </form>
+
+      <SkillEditor
+        skills={skills}
+        userId={user.id}
+        portfolioPublic={user.portfolio_public}
+      />
     </div>
   );
 }

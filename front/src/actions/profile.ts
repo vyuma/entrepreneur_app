@@ -1,18 +1,18 @@
-"use server"
+"use server";
 
-import { auth } from "@/auth"
-import { apiFetch } from "@/lib/api"
-import { revalidatePath } from "next/cache"
+import { revalidatePath } from "next/cache";
+import { auth } from "@/auth";
+import { apiFetch } from "@/lib/api";
 
 export async function updateProfile(formData: FormData) {
-  const session = await auth()
-  if (!session?.user.discordId) throw new Error("Not authenticated")
+  const session = await auth();
+  if (!session?.user.discordId) throw new Error("Not authenticated");
 
-  const snsRaw = formData.get("sns_links") as string
-  let sns_links: Record<string, string> | null = null
+  const snsRaw = formData.get("sns_links") as string;
+  let sns_links: Record<string, string> | null = null;
   if (snsRaw?.trim()) {
     try {
-      sns_links = JSON.parse(snsRaw)
+      sns_links = JSON.parse(snsRaw);
     } catch {
       // パース失敗時は無視
     }
@@ -26,8 +26,8 @@ export async function updateProfile(formData: FormData) {
       business_desc: formData.get("business_desc") || null,
       sns_links,
     }),
-  })
+  });
 
-  revalidatePath("/profile")
-  revalidatePath("/members")
+  revalidatePath("/profile");
+  revalidatePath("/members");
 }

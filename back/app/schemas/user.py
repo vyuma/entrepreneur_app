@@ -26,4 +26,5 @@ class UserResponse(BaseModel):
     business_desc: Optional[str]
     sns_links: Optional[dict]
     discord_channel_id: Optional[str]
+    portfolio_public: bool = False
     created_at: datetime

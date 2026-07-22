@@ -4,6 +4,7 @@ import re
 import discord
 from discord.ext import commands, tasks
 
+from app.bot_competitions import setup_competition_commands
 from app.core import discord as discord_api
 from app.core.config import settings
 from app.core.database import SessionLocal
@@ -242,6 +243,10 @@ class EntrepreneurBot(commands.Bot):
     async def setup_hook(self) -> None:
         await self._restore_pending_views()
         self.activity_poll.start()
+        try:
+            await setup_competition_commands(self)
+        except Exception:
+            logger.exception("Failed to register competition commands")
 
     async def on_ready(self) -> None:
         logger.info("Bot logged in as %s", self.user)

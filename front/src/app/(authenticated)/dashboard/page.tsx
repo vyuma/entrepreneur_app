@@ -1,8 +1,14 @@
 import Link from "next/link";
 import { auth } from "@/auth";
 import { apiFetch } from "@/lib/api";
+import type { CardKey } from "@/lib/cards";
+import type { DashboardSummary } from "@/types/competition";
+import DashboardSettings from "./DashboardSettings";
+import EntrySummaryCard from "./EntrySummaryCard";
 import MonthlyChart from "./MonthlyChart";
 import TimeProgressCard from "./TimeProgressCard";
+import UpcomingDeadlines from "./UpcomingDeadlines";
+import WeekCalendar from "./WeekCalendar";
 
 type TimeSummary = {
   total_minutes: number;
@@ -30,51 +36,92 @@ export default async function DashboardPage() {
     monthly: [],
     recent_logs: [],
   };
+  let dashboard: DashboardSummary = {
+    entries: { challenge: 0, wait: 0, achieve: 0, dropped: 0 },
+    upcoming: [],
+    week: [],
+    cards: [],
+  };
+
   try {
-    summary = await apiFetch(`/api/time-logs/summary?discord_id=${discordId}`);
+    [summary, dashboard] = await Promise.all([
+      apiFetch(`/api/time-logs/summary?discord_id=${discordId}`),
+      apiFetch(`/api/dashboard/summary?discord_id=${discordId}`),
+    ]);
   } catch {
     // バックエンド未起動時はゼロ表示
   }
 
+  // 未設定のカードは既定で表示する
+  const hidden = new Set(
+    dashboard.cards.filter((c) => !c.visible).map((c) => c.card_key),
+  );
+  const show = (key: CardKey) => !hidden.has(key);
+
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="text-2xl font-semibold text-black dark:text-zinc-50">
-        ホーム
-      </h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold text-black dark:text-zinc-50">
+          ホーム
+        </h1>
+      </div>
+
+      <DashboardSettings cards={dashboard.cards} />
+
+      {/* 応募サマリー・直近締切 */}
+      {(show("entry_summary") || show("upcoming_deadlines")) && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {show("entry_summary") && (
+            <EntrySummaryCard entries={dashboard.entries} />
+          )}
+          {show("upcoming_deadlines") && (
+            <UpcomingDeadlines upcoming={dashboard.upcoming} />
+          )}
+        </div>
+      )}
+
+      {/* 週次アクティビティ */}
+      {show("week_calendar") && dashboard.week.length > 0 && (
+        <WeekCalendar week={dashboard.week} />
+      )}
 
       {/* 今月の円グラフ＋累計 */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <TimeProgressCard
-          year={now.getFullYear()}
-          month={now.getMonth() + 1}
-          minutes={summary.month_minutes}
-          totalMinutes={summary.total_minutes}
-        />
+        {show("time_progress") && (
+          <TimeProgressCard
+            year={now.getFullYear()}
+            month={now.getMonth() + 1}
+            minutes={summary.month_minutes}
+            totalMinutes={summary.total_minutes}
+          />
+        )}
 
         {/* 月別棒グラフ */}
-        <div className="rounded-xl bg-gradient-to-br from-[var(--brand-orange)]/50 via-zinc-300 to-[var(--brand-green)]/50 p-px dark:from-[var(--brand-orange)]/35 dark:via-zinc-700 dark:to-[var(--brand-green)]/35">
-          <div className="h-full rounded-[11px] bg-white p-5 dark:bg-zinc-900">
-            <p className="mb-4 text-sm font-medium text-zinc-500 dark:text-zinc-400">
-              月別作業時間
-            </p>
-            {summary.monthly.length === 0 ? (
-              <p className="text-sm text-zinc-400 leading-relaxed">
-                Discordの専用チャンネルに投稿すると記録されます。
-                <br />
-                例:{" "}
-                <code className="rounded bg-zinc-100 px-1 text-xs dark:bg-zinc-800">
-                  2時間勉強した
-                </code>
+        {show("monthly_chart") && (
+          <div className="rounded-xl bg-gradient-to-br from-[var(--brand-orange)]/50 via-zinc-300 to-[var(--brand-green)]/50 p-px dark:from-[var(--brand-orange)]/35 dark:via-zinc-700 dark:to-[var(--brand-green)]/35">
+            <div className="h-full rounded-[11px] bg-white p-5 dark:bg-zinc-900">
+              <p className="mb-4 text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                月別作業時間
               </p>
-            ) : (
-              <MonthlyChart
-                data={summary.monthly}
-                currentYear={now.getFullYear()}
-                currentMonth={now.getMonth() + 1}
-              />
-            )}
+              {summary.monthly.length === 0 ? (
+                <p className="text-sm text-zinc-400 leading-relaxed">
+                  Discordの専用チャンネルに投稿すると記録されます。
+                  <br />
+                  例:{" "}
+                  <code className="rounded bg-zinc-100 px-1 text-xs dark:bg-zinc-800">
+                    2時間勉強した
+                  </code>
+                </p>
+              ) : (
+                <MonthlyChart
+                  data={summary.monthly}
+                  currentYear={now.getFullYear()}
+                  currentMonth={now.getMonth() + 1}
+                />
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* 直近ログ10件 */}

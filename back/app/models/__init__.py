@@ -3,3 +3,7 @@ from app.models.time_log import TimeLog
 from app.models.activity import Activity
 from app.models.point_log import PointLog
 from app.models.point_rate_setting import PointRateSetting
+from app.models.competition_entry import CompetitionEntry
+from app.models.user_skill import UserSkill
+from app.models.dashboard_pref import DashboardPref
+from app.models.internal_event import InternalEvent
