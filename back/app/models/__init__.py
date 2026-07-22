@@ -9,3 +9,4 @@ from app.models.dashboard_pref import DashboardPref
 from app.models.internal_event import InternalEvent
 from app.models.admin_audit_log import AdminAuditLog
 from app.models.login_bonus import LoginBonus
+from app.models.nuestar_event import NueStarEvent, EventEntry, EventVote

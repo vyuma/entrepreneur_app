@@ -129,6 +129,24 @@ function AchievementsIcon(props: IconProps) {
   );
 }
 
+function EventsIcon(props: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      <path d="M12 3.5 14.3 8l5 .7-3.6 3.5.9 5-4.6-2.4L7.4 17.2l.9-5L4.7 8.7l5-.7L12 3.5Z" />
+      <path d="M6 21h12" />
+    </svg>
+  );
+}
+
 function AdminIcon(props: IconProps) {
   return (
     <svg
@@ -176,6 +194,7 @@ export default async function AuthenticatedLayout({
 
   const navItems = [
     { href: "/dashboard", label: "ダッシュボード", Icon: DashboardIcon },
+    { href: "/events", label: "NueStar", Icon: EventsIcon },
     { href: "/competitions", label: "コンペ", Icon: CompetitionsIcon },
     { href: "/achievements", label: "成果", Icon: AchievementsIcon },
     { href: "/members", label: "メンバー", Icon: MembersIcon },
