@@ -1,4 +1,5 @@
 import { saveDashboardPrefs } from "@/actions/settings";
+import SubmitButton from "@/app/components/SubmitButton";
 import { CARD_KEYS, CARD_LABELS } from "@/lib/cards";
 import type { DashboardCard } from "@/types/competition";
 
@@ -32,13 +33,13 @@ export default function DashboardSettings({
             </label>
           ))}
         </div>
-        <button
-          type="submit"
-          className="self-start rounded-full px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+        <SubmitButton
+          pendingLabel="保存中..."
+          className="self-start rounded-full px-4 py-1.5 text-sm font-medium text-white hover:opacity-90"
           style={{ backgroundColor: "var(--brand-green)" }}
         >
           保存
-        </button>
+        </SubmitButton>
       </form>
     </details>
   );

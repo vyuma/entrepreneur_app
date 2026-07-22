@@ -50,6 +50,8 @@ export type Entry = {
   activity_id: string | null;
   applied_at: string;
   decided_at: string | null;
+  /** 成果にならなかった場合に自動削除されるまでの残り日数（null = 期日不明で自動削除しない） */
+  expires_in_days: number | null;
   username: string | null;
   display_name: string | null;
   avatar_url: string | null;
@@ -127,3 +129,6 @@ export const ENTRY_STATUS_LABELS: Record<EntryStatus, string> = {
   achieve: "成果",
   dropped: "見送り",
 };
+
+/** 期日を過ぎてから自動削除されるまでの猶予日数（バックエンドの GRACE_DAYS と対応） */
+export const GRACE_DAYS = 30;

@@ -11,6 +11,31 @@ async function requireDiscordId() {
   return session.user.discordId;
 }
 
+/**
+ * 成果を直接登録する。
+ * コンペ一覧に無い受賞（学内表彰・外部APIに載っていないコンペなど）や、
+ * ボードを使う前に獲得済みだった実績をポートフォリオに反映するために使う。
+ */
+export async function reportAchievement(formData: FormData) {
+  const discordId = await requireDiscordId();
+
+  await apiFetch(`/api/competitions/entries?discord_id=${discordId}`, {
+    method: "POST",
+    body: JSON.stringify({
+      name: formData.get("name"),
+      url: formData.get("url") || "",
+      result: formData.get("result") || null,
+      event_date_date: formData.get("event_date_date") || null,
+      memo: formData.get("memo") || null,
+      status: "achieve",
+    }),
+  });
+
+  revalidatePath("/achievements");
+  revalidatePath("/dashboard");
+  revalidatePath("/members");
+}
+
 /** コンペ一覧・推薦画面から応募エントリを登録する */
 export async function createEntry(formData: FormData) {
   const discordId = await requireDiscordId();
@@ -42,13 +67,21 @@ export async function moveEntry(formData: FormData) {
   const entryId = formData.get("entry_id") as string;
   const status = formData.get("status") as EntryStatus;
 
-  await apiFetch(
-    `/api/competitions/entries/${entryId}?discord_id=${discordId}`,
-    {
-      method: "PATCH",
-      body: JSON.stringify({ status }),
-    },
-  );
+  if (status === "dropped") {
+    // 成果にならないと確定したものはボードに残さず削除する
+    await apiFetch(
+      `/api/competitions/entries/${entryId}?discord_id=${discordId}`,
+      { method: "DELETE" },
+    );
+  } else {
+    await apiFetch(
+      `/api/competitions/entries/${entryId}?discord_id=${discordId}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      },
+    );
+  }
 
   revalidatePath("/achievements");
   revalidatePath("/dashboard");

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -19,7 +19,15 @@ from app.schemas.competition import (
     InternalEventResponse,
 )
 from app.services import competitions as comp_api
-from app.services.competition_entry import get_entry_or_404, update_entry, user_or_404
+from app.services.competition_entry import (
+    GRACE_DAYS,
+    create_activity_draft,
+    deadline_for,
+    get_entry_or_404,
+    purge_expired_entries,
+    update_entry,
+    user_or_404,
+)
 
 router = APIRouter()
 
@@ -145,6 +153,13 @@ def list_internal_events(db: Session = Depends(get_db), _=Depends(verify_token))
 
 def _entry_response(entry: CompetitionEntry, user: User | None, viewer_id: str) -> EntryResponse:
     res = EntryResponse.model_validate(entry)
+
+    # 成果以外は期日 + 猶予で自動削除されるので、残り日数を返す
+    if entry.status != "achieve":
+        end = deadline_for(entry)
+        if end is not None:
+            res.expires_in_days = GRACE_DAYS - (date.today() - end).days
+
     # memo は本人のみ閲覧可（サークル内公開は名前・ステータス・結果まで）
     if entry.user_id != viewer_id:
         res.memo = None
@@ -165,6 +180,9 @@ def list_entries(
     """サークル内公開。mine=true で自分の応募のみ。"""
     viewer = user_or_404(db, discord_id)
 
+    # 成果にならなかった応募をここで整理する
+    purge_expired_entries(db)
+
     q = db.query(CompetitionEntry)
     if mine:
         q = q.filter(CompetitionEntry.user_id == viewer.id)
@@ -183,19 +201,34 @@ def create_entry(
 ):
     user = user_or_404(db, discord_id)
 
-    existing = (
-        db.query(CompetitionEntry)
-        .filter(CompetitionEntry.user_id == user.id, CompetitionEntry.url == body.url)
-        .first()
-    )
-    if existing:
+    if body.status not in ("challenge", "achieve"):
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="このコンペには既に応募登録済みです",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="status は challenge か achieve のみ指定できます",
         )
 
-    entry = CompetitionEntry(user_id=user.id, status="challenge", **body.model_dump())
+    # URL 付きの応募のみ重複チェックする（URL 無しの成果報告は複数登録できてよい）
+    if body.url:
+        existing = (
+            db.query(CompetitionEntry)
+            .filter(CompetitionEntry.user_id == user.id, CompetitionEntry.url == body.url)
+            .first()
+        )
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="このコンペには既に応募登録済みです",
+            )
+
+    entry = CompetitionEntry(user_id=user.id, **body.model_dump())
     db.add(entry)
+
+    # 成果として直接登録された場合は活動実績の下書きも作る
+    if entry.status == "achieve":
+        entry.decided_at = datetime.now(timezone.utc)
+        db.flush()
+        create_activity_draft(db, entry)
+
     db.commit()
     db.refresh(entry)
     return _entry_response(entry, user, user.id)

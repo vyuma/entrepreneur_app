@@ -24,12 +24,16 @@ class CompetitionSearchResponse(BaseModel):
 
 
 class EntryCreate(BaseModel):
-    url: str
     name: str
+    # 外部コンペのURL。学内表彰など URL が無い成果もあるので任意
+    url: str = ""
     competition_id: Optional[int] = None
     memo: Optional[str] = None
     deadline_date: Optional[str] = None
     event_date_date: Optional[str] = None
+    # "challenge"（通常の応募）か "achieve"（過去の受賞をまとめて登録する場合）
+    status: str = "challenge"
+    result: Optional[str] = None
 
 
 class EntryUpdate(BaseModel):
@@ -55,6 +59,8 @@ class EntryResponse(BaseModel):
     activity_id: Optional[str]
     applied_at: datetime
     decided_at: Optional[datetime]
+    # 成果にならなかった場合に自動削除されるまでの残り日数（None = 期日不明で自動削除しない）
+    expires_in_days: Optional[int] = None
     # 表示用（一覧で誰の応募かを出す）
     username: Optional[str] = None
     display_name: Optional[str] = None

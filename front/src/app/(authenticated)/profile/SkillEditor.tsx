@@ -1,16 +1,15 @@
 import Link from "next/link";
 import { addSkill, removeSkill } from "@/actions/settings";
+import SubmitButton from "@/app/components/SubmitButton";
 
 export type Skill = { id: string; label: string; source: string };
 
 export default function SkillEditor({
   skills,
   userId,
-  portfolioPublic,
 }: {
   skills: Skill[];
   userId: string | null;
-  portfolioPublic: boolean;
 }) {
   return (
     <section className="flex flex-col gap-4 rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
@@ -56,22 +55,21 @@ export default function SkillEditor({
           placeholder="例: React, 事業計画, 資金調達"
           className="min-w-0 flex-1 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-[var(--brand-blue)] dark:border-zinc-700 dark:bg-zinc-950"
         />
-        <button
-          type="submit"
-          className="shrink-0 rounded-full px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
+        <SubmitButton
+          pendingLabel="追加中..."
+          className="shrink-0 rounded-full px-4 py-2 text-sm font-medium text-white hover:opacity-90"
           style={{ backgroundColor: "var(--brand-blue)" }}
         >
           追加
-        </button>
+        </SubmitButton>
       </form>
 
       {userId && (
         <Link
           href={`/portfolio/${userId}`}
-          className="text-sm hover:underline"
-          style={{ color: "var(--brand-green)" }}
+          className="text-xs text-zinc-500 hover:underline dark:text-zinc-400"
         >
-          ポートフォリオを開く（現在:{portfolioPublic ? "公開" : "非公開"}） →
+          ポートフォリオでの見え方を確認する →
         </Link>
       )}
     </section>

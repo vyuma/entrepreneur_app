@@ -98,12 +98,17 @@ export default async function PortfolioPage({
               unit: "h",
               color: "var(--brand-blue)",
             },
-            {
-              label: "受賞・成果",
-              value: `${portfolio.achievement_count}`,
-              unit: "件",
-              color: "var(--brand-orange)",
-            },
+            // 受賞0件のときはタイル自体を出さない（未登録と実績なしを混同させないため）
+            ...(portfolio.achievement_count > 0
+              ? [
+                  {
+                    label: "受賞・成果",
+                    value: `${portfolio.achievement_count}`,
+                    unit: "件",
+                    color: "var(--brand-orange)",
+                  },
+                ]
+              : []),
           ].map((stat) => (
             <div key={stat.label} className="flex flex-col">
               <dt className="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-400">
@@ -135,6 +140,36 @@ export default async function PortfolioPage({
               </span>
             ))}
           </div>
+        )}
+
+        {portfolio.sns_links && Object.keys(portfolio.sns_links).length > 0 && (
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+            {Object.entries(portfolio.sns_links).map(([label, url]) => (
+              <a
+                key={label}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm hover:underline"
+                style={{ color: "var(--brand-blue)" }}
+              >
+                {label}
+              </a>
+            ))}
+          </div>
+        )}
+
+        {isOwner && portfolio.achievement_count === 0 && (
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            受賞・成果がまだ登録されていません。
+            <Link
+              href="/achievements"
+              className="ml-1 hover:underline"
+              style={{ color: "var(--brand-green)" }}
+            >
+              成果トラッキングから報告する →
+            </Link>
+          </p>
         )}
 
         {isOwner && (

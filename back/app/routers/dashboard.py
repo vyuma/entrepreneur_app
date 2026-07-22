@@ -11,7 +11,7 @@ from app.models.competition_entry import CompetitionEntry
 from app.models.dashboard_pref import CARD_KEYS, DashboardPref
 from app.models.time_log import TimeLog
 from app.schemas.competition import DashboardPrefItem, DashboardPrefUpdate
-from app.services.competition_entry import user_or_404
+from app.services.competition_entry import purge_expired_entries, user_or_404
 
 router = APIRouter()
 
@@ -58,6 +58,7 @@ def _default_cards() -> list[DashboardPrefItem]:
 @router.get("/summary", response_model=DashboardSummary)
 def get_summary(discord_id: str, db: Session = Depends(get_db), _=Depends(verify_token)):
     user = user_or_404(db, discord_id)
+    purge_expired_entries(db, user.id)
 
     counts = dict(
         db.query(CompetitionEntry.status, func.count(CompetitionEntry.id))

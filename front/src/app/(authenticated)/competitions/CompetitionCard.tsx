@@ -1,4 +1,5 @@
 import { createEntry } from "@/actions/competition";
+import SubmitButton from "@/app/components/SubmitButton";
 import {
   deadlineBadge,
   formatDate,
@@ -127,13 +128,13 @@ export default function CompetitionCard({
               name="event_date_date"
               value={competition.event_date_date ?? ""}
             />
-            <button
-              type="submit"
-              className="rounded-full px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90"
+            <SubmitButton
+              pendingLabel="追加中..."
+              className="rounded-full px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
               style={{ backgroundColor: "var(--brand-green)" }}
             >
               応募に追加
-            </button>
+            </SubmitButton>
           </form>
         )}
       </div>

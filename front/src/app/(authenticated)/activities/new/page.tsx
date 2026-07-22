@@ -1,4 +1,5 @@
 import { createActivity } from "@/actions/activity";
+import SubmitButton from "@/app/components/SubmitButton";
 
 export default function NewActivityPage() {
   return (
@@ -104,12 +105,17 @@ export default function NewActivityPage() {
           />
         </div>
 
-        <button
-          type="submit"
-          className="rounded-full bg-black px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+        <SubmitButton
+          pendingLabel="申請しています..."
+          className="rounded-full bg-black px-6 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
         >
           申請する
-        </button>
+        </SubmitButton>
+
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          申請するとDiscordの管理者チャンネルに通知され、承認されるとポイントが付与されます。
+          審査状況は活動実績の一覧で確認できます。
+        </p>
       </form>
     </div>
   );

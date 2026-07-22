@@ -1,4 +1,5 @@
 import Link from "next/link";
+import PortfolioCallout from "@/app/components/PortfolioCallout";
 import { auth } from "@/auth";
 import { apiFetch } from "@/lib/api";
 import type { CardKey } from "@/lib/cards";
@@ -43,10 +44,16 @@ export default async function DashboardPage() {
     cards: [],
   };
 
+  let me: {
+    id: string | null;
+    portfolio_public: boolean;
+  } = { id: null, portfolio_public: false };
+
   try {
-    [summary, dashboard] = await Promise.all([
+    [summary, dashboard, me] = await Promise.all([
       apiFetch(`/api/time-logs/summary?discord_id=${discordId}`),
       apiFetch(`/api/dashboard/summary?discord_id=${discordId}`),
+      apiFetch(`/api/users/me?discord_id=${discordId}`),
     ]);
   } catch {
     // バックエンド未起動時はゼロ表示
@@ -65,6 +72,13 @@ export default async function DashboardPage() {
           ホーム
         </h1>
       </div>
+
+      <PortfolioCallout
+        userId={me.id}
+        isPublic={me.portfolio_public}
+        achievementCount={dashboard.entries.achieve}
+        totalHours={Math.floor(summary.total_minutes / 60)}
+      />
 
       <DashboardSettings cards={dashboard.cards} />
 
@@ -173,6 +187,16 @@ export default async function DashboardPage() {
       {/* ナビゲーション */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {[
+          {
+            href: "/competitions",
+            label: "コンペを探す",
+            desc: "締切・カレンダー・AI推薦",
+          },
+          {
+            href: "/achievements",
+            label: "成果トラッキング",
+            desc: "応募・結果待ち・成果を管理",
+          },
           {
             href: "/members",
             label: "メンバー一覧",

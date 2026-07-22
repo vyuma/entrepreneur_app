@@ -3,6 +3,7 @@ import {
   moveEntry,
   updateEntryDetail,
 } from "@/actions/competition";
+import SubmitButton from "@/app/components/SubmitButton";
 import { deadlineBadge } from "@/lib/competition-format";
 import {
   ENTRY_STATUS_LABELS,
@@ -11,11 +12,12 @@ import {
 } from "@/types/competition";
 
 /** 各ステータスから移動できる先 */
+/** 「見送り」は成果にならなかったものとして削除される */
 const NEXT_STATUSES: Record<EntryStatus, EntryStatus[]> = {
   challenge: ["wait", "achieve", "dropped"],
   wait: ["achieve", "dropped", "challenge"],
   achieve: ["wait"],
-  dropped: ["challenge"],
+  dropped: [],
 };
 
 const STATUS_COLOR: Record<EntryStatus, string> = {
@@ -82,6 +84,18 @@ export default function EntryCard({
         </span>
       )}
 
+      {/* 自動削除が近いものは事前に知らせる */}
+      {entry.expires_in_days !== null &&
+        entry.expires_in_days <= 14 &&
+        entry.status !== "achieve" && (
+          <p className="text-[11px]" style={{ color: "var(--brand-orange)" }}>
+            {entry.expires_in_days <= 0
+              ? "まもなく自動削除されます"
+              : `あと${entry.expires_in_days}日で自動削除されます`}
+            （受賞した場合は「成果」へ）
+          </p>
+        )}
+
       {editable && (
         <>
           <details className="text-xs">
@@ -107,13 +121,13 @@ export default function EntryCard({
                 placeholder="受賞・結果（例: 最優秀賞）"
                 className="rounded-lg border border-zinc-300 bg-white px-2 py-1.5 outline-none focus:border-[var(--brand-green)] dark:border-zinc-700 dark:bg-zinc-950"
               />
-              <button
-                type="submit"
-                className="self-start rounded-full px-3 py-1 font-medium text-white transition-opacity hover:opacity-90"
+              <SubmitButton
+                pendingLabel="保存中..."
+                className="self-start rounded-full px-3 py-1 font-medium text-white hover:opacity-90"
                 style={{ backgroundColor: "var(--brand-green)" }}
               >
                 保存
-              </button>
+              </SubmitButton>
             </form>
           </details>
 
@@ -122,26 +136,28 @@ export default function EntryCard({
               <form action={moveEntry} key={next}>
                 <input type="hidden" name="entry_id" value={entry.id} />
                 <input type="hidden" name="status" value={next} />
-                <button
-                  type="submit"
-                  className="rounded-full border px-2.5 py-1 text-[11px] transition-colors hover:text-white"
+                <SubmitButton
+                  pendingLabel="移動中..."
+                  className="rounded-full border px-2.5 py-1 text-[11px]"
                   style={{
                     borderColor: STATUS_COLOR[next],
                     color: STATUS_COLOR[next],
                   }}
                 >
-                  → {ENTRY_STATUS_LABELS[next]}
-                </button>
+                  {next === "dropped"
+                    ? "見送り（削除）"
+                    : `→ ${ENTRY_STATUS_LABELS[next]}`}
+                </SubmitButton>
               </form>
             ))}
             <form action={deleteEntry} className="ml-auto">
               <input type="hidden" name="entry_id" value={entry.id} />
-              <button
-                type="submit"
-                className="text-[11px] text-zinc-400 transition-colors hover:text-[var(--brand-orange)]"
+              <SubmitButton
+                pendingLabel="削除中..."
+                className="text-[11px] text-zinc-400 hover:text-[var(--brand-orange)]"
               >
                 削除
-              </button>
+              </SubmitButton>
             </form>
           </div>
         </>
