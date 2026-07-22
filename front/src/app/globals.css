@@ -106,17 +106,6 @@ body {
   }
 }
 
-/* ネオンティア用: グロウの高速点滅 */
-@keyframes neon-pulse {
-  0%,
-  100% {
-    filter: drop-shadow(0 0 6px #00ffff) drop-shadow(0 0 14px #ff00ff);
-  }
-  50% {
-    filter: drop-shadow(0 0 12px #ff00ff) drop-shadow(0 0 22px #00ff66);
-  }
-}
-
 /* ------------------------------------------------------------------
    グリッド背景
    ページ全体の下地に薄い方眼を敷く。中央から外側へ向かってフェード

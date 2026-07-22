@@ -13,14 +13,25 @@ export default function SkillEditor({
 }) {
   return (
     <section className="flex flex-col gap-4 rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-      <div>
-        <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+      <div className="flex items-center gap-2">
+        <span
+          className="h-2 w-2 rounded-full"
+          style={{ backgroundColor: "var(--brand-blue)" }}
+        />
+        <h2 className="text-sm font-semibold text-black dark:text-zinc-50">
           スキルタグ
         </h2>
-        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          メンバー一覧の絞り込みとポートフォリオに表示されます。
-        </p>
+        {skills.length > 0 && (
+          <span className="font-mono text-[11px] tabular-nums text-zinc-400">
+            {skills.length}
+          </span>
+        )}
       </div>
+
+      <p className="-mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+        得意なことを登録すると、メンバー一覧で絞り込まれるようになり、ポートフォリオにも表示されます。
+        {skills.length === 0 && " まずは1つ追加してみてください。"}
+      </p>
 
       {skills.length > 0 && (
         <ul className="flex flex-wrap gap-2">

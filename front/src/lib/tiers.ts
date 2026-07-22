@@ -15,8 +15,7 @@ export type TierName =
   | "diamond"
   | "rainbow"
   | "rainbowPrismatic"
-  | "prismatic"
-  | "neon";
+  | "prismatic";
 
 export type TierStyle = {
   name: TierName;
@@ -263,29 +262,6 @@ export const TIER_STYLES: Record<TierName, TierStyle> = {
       { offset: "100%", color: "#5eead4" },
     ],
   },
-  neon: {
-    name: "neon",
-    label: "NEON",
-    ring: "conic-gradient(from 0deg, #00ffff, #ff00ff, #00ff44, #ff0066, #00ffff)",
-    ringInner:
-      "conic-gradient(from 180deg, #ff00ff, #00ffff, #ff0066, #00ff44, #ff00ff)",
-    glow: ["#00ffff", "#ff00ff"],
-    wrapper:
-      "tier-shimmer bg-[linear-gradient(110deg,#00ffff,#ff00ff,#00ff44,#ff0066,#00ffff)]",
-    numberClass: "text-[#00ffff]",
-    numberStyle: {
-      textShadow:
-        "0 0 6px #00ffff, 0 0 12px #00ffff, 0 0 18px #ff00ff, 0 0 30px #ff00ff",
-    },
-    labelClass: "text-[#ff00ff]",
-    spinSec: 3,
-    badgeExtraClass: "[animation:neon-pulse_1.4s_ease-in-out_infinite]",
-    arcStops: [
-      { offset: "0%", color: "#00ffff" },
-      { offset: "50%", color: "#ff00ff" },
-      { offset: "100%", color: "#00ff44" },
-    ],
-  },
 };
 
 export type TierLadder = { threshold: number; tier: TierName }[];
@@ -314,7 +290,7 @@ export const POINTS_LADDER: TierLadder = [
   { threshold: 1000, tier: "prismatic" },
 ];
 
-/** 月の作業時間 (分単位)。5 時間ごとに切り替え、最大 50h で NEON。 */
+/** 月の作業時間 (分単位)。5 時間ごとに切り替え、最大 50h で PRISMATIC。 */
 export const TIME_LADDER_MIN: TierLadder = [
   { threshold: 0, tier: "entry" },
   { threshold: 5 * 60, tier: "nuestar" },
@@ -325,8 +301,8 @@ export const TIME_LADDER_MIN: TierLadder = [
   { threshold: 30 * 60, tier: "sapphire" },
   { threshold: 35 * 60, tier: "diamond" },
   { threshold: 40 * 60, tier: "rainbow" },
-  { threshold: 45 * 60, tier: "prismatic" },
-  { threshold: 50 * 60, tier: "neon" },
+  { threshold: 45 * 60, tier: "rainbowPrismatic" },
+  { threshold: 50 * 60, tier: "prismatic" },
 ];
 
 export const TIME_MAX_MINUTES = 55 * 60; // 3300

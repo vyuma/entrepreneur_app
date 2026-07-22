@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.core.database import engine, Base
+from app.core.schema_check import check_schema_is_current
 from app.models import *  # noqa: F401, F403 — Baseにモデルを登録
 from app.routers import (
     users,
@@ -21,8 +21,11 @@ from app.routers import (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # DBファイル・テーブルが存在しなければ自動作成
-    Base.metadata.create_all(bind=engine)
+    # スキーマは Alembic だけが管理する。
+    # ここで create_all() を呼ぶと「テーブルは作るが列は追加しない」ため、
+    # 新しいマイグレーションと衝突して table already exists で失敗する。
+    # 起動前に `alembic upgrade head` を実行すること。
+    check_schema_is_current()
     yield
 
 

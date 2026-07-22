@@ -51,6 +51,9 @@ export default async function ProfilePage() {
       {/* ポートフォリオを最上部に置いて埋もれないようにする */}
       <PortfolioCallout userId={user.id} isPublic={user.portfolio_public} />
 
+      {/* スキルタグは自己紹介より先に。1クリックで増やせて効果が分かりやすいため */}
+      <SkillEditor skills={skills} userId={user.id} />
+
       <form action={updateProfile} className="flex flex-col gap-6">
         {/* 既知でないSNSキーを保持するため、元の値を持ち回す */}
         <input type="hidden" name="sns_existing" value={JSON.stringify(sns)} />
@@ -165,8 +168,6 @@ export default async function ProfilePage() {
           </SubmitButton>
         </section>
       </form>
-
-      <SkillEditor skills={skills} userId={user.id} />
     </div>
   );
 }
