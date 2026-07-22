@@ -19,6 +19,13 @@ POINTS_LADDER: list[tuple[int, str]] = [
     (800, "rainbow"),
     (900, "rainbowPrismatic"),
     (1000, "prismatic"),
+    # PRISMATIC の先。到達間隔を広げた長期のやり込み枠
+    (1200, "supernova"),
+    (1600, "nebula"),
+    (2100, "aurora"),
+    (2700, "eclipse"),
+    (3500, "quasar"),
+    (5000, "singularity"),
 ]
 
 TIER_NAMES = {name for _, name in POINTS_LADDER}

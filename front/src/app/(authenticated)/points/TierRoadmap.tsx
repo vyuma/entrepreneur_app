@@ -95,8 +95,8 @@ export default function TierRoadmap({ totalPoints }: { totalPoints: number }) {
         )}
       </div>
 
-      {/* 全ランクの一覧 */}
-      <ol className="flex flex-col">
+      {/* 全ランクの一覧。段数が多いので上位は折りたたむ */}
+      <ol className="flex max-h-[22rem] flex-col overflow-y-auto pr-1">
         {POINTS_LADDER.map((step, i) => {
           const style = TIER_STYLES[step.tier];
           const reached = totalPoints >= step.threshold;

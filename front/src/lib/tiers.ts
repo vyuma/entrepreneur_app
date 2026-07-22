@@ -15,7 +15,13 @@ export type TierName =
   | "diamond"
   | "rainbow"
   | "rainbowPrismatic"
-  | "prismatic";
+  | "prismatic"
+  | "supernova"
+  | "nebula"
+  | "aurora"
+  | "eclipse"
+  | "quasar"
+  | "singularity";
 
 export type TierStyle = {
   name: TierName;
@@ -262,6 +268,136 @@ export const TIER_STYLES: Record<TierName, TierStyle> = {
       { offset: "100%", color: "#5eead4" },
     ],
   },
+
+  /* --- PRISMATIC の先。淡い光の極みに対して「熱量」と「深宇宙」で格上げする --- */
+
+  supernova: {
+    name: "supernova",
+    label: "SUPERNOVA",
+    ring: "conic-gradient(from 0deg, #ffffff, #ffe9a3, #ff8a3d, #ff2d78, #7a1fa2, #ffffff)",
+    ringInner:
+      "conic-gradient(from 180deg, #ff8a3d, #ffffff, #ff2d78, #ffe9a3, #7a1fa2, #ff8a3d)",
+    glow: ["#ff8a3d", "#ff2d78"],
+    wrapper:
+      "tier-shimmer bg-[linear-gradient(110deg,#ffffff,#ffe9a3,#ff8a3d,#ff2d78,#7a1fa2,#ff8a3d,#ffffff)]",
+    numberClass:
+      "bg-[linear-gradient(110deg,#f59e0b,#f97316,#ec4899,#a21caf,#f59e0b)] bg-[length:200%_100%] tier-shimmer bg-clip-text text-transparent drop-shadow-[0_0_8px_rgba(255,138,61,0.5)]",
+    labelClass:
+      "bg-[linear-gradient(110deg,#f97316,#ec4899,#a21caf,#f97316)] bg-clip-text text-transparent",
+    spinSec: 2.8,
+    arcStops: [
+      { offset: "0%", color: "#ffe9a3" },
+      { offset: "35%", color: "#ff8a3d" },
+      { offset: "70%", color: "#ff2d78" },
+      { offset: "100%", color: "#7a1fa2" },
+    ],
+  },
+  nebula: {
+    name: "nebula",
+    label: "NEBULA",
+    ring: "conic-gradient(from 0deg, #2a1b5e, #7c3aed, #ec4899, #22d3ee, #4c1d95, #2a1b5e)",
+    ringInner:
+      "conic-gradient(from 180deg, #ec4899, #2a1b5e, #22d3ee, #7c3aed, #4c1d95, #ec4899)",
+    glow: ["#7c3aed", "#ec4899"],
+    wrapper:
+      "tier-shimmer bg-[linear-gradient(110deg,#2a1b5e,#7c3aed,#ec4899,#22d3ee,#4c1d95,#2a1b5e)]",
+    numberClass:
+      "bg-[linear-gradient(110deg,#7c3aed,#ec4899,#22d3ee,#7c3aed)] bg-[length:200%_100%] tier-shimmer bg-clip-text text-transparent",
+    labelClass:
+      "bg-[linear-gradient(110deg,#8b5cf6,#ec4899,#22d3ee,#8b5cf6)] bg-clip-text text-transparent",
+    spinSec: 2.6,
+    arcStops: [
+      { offset: "0%", color: "#4c1d95" },
+      { offset: "35%", color: "#7c3aed" },
+      { offset: "70%", color: "#ec4899" },
+      { offset: "100%", color: "#22d3ee" },
+    ],
+  },
+  aurora: {
+    name: "aurora",
+    label: "AURORA",
+    ring: "conic-gradient(from 0deg, #0a1a3f, #2ea84a, #22d3ee, #818cf8, #c084fc, #0a1a3f)",
+    ringInner:
+      "conic-gradient(from 180deg, #22d3ee, #0a1a3f, #c084fc, #2ea84a, #818cf8, #22d3ee)",
+    glow: ["#22d3ee", "#2ea84a"],
+    wrapper:
+      "tier-shimmer bg-[linear-gradient(110deg,#0a1a3f,#2ea84a,#22d3ee,#818cf8,#c084fc,#0a1a3f)]",
+    numberClass:
+      "bg-[linear-gradient(110deg,#2ea84a,#22d3ee,#818cf8,#c084fc,#2ea84a)] bg-[length:200%_100%] tier-shimmer bg-clip-text text-transparent",
+    labelClass:
+      "bg-[linear-gradient(110deg,#16a34a,#0891b2,#6366f1,#a855f7,#16a34a)] bg-clip-text text-transparent",
+    spinSec: 2.4,
+    arcStops: [
+      { offset: "0%", color: "#2ea84a" },
+      { offset: "35%", color: "#22d3ee" },
+      { offset: "70%", color: "#818cf8" },
+      { offset: "100%", color: "#c084fc" },
+    ],
+  },
+  eclipse: {
+    name: "eclipse",
+    label: "ECLIPSE",
+    ring: "conic-gradient(from 0deg, #0b0b0f, #b8860b, #ffd700, #fff3b0, #b8860b, #0b0b0f)",
+    ringInner:
+      "conic-gradient(from 180deg, #ffd700, #0b0b0f, #fff3b0, #b8860b, #0b0b0f, #ffd700)",
+    glow: ["#ffd700", "#b8860b"],
+    wrapper:
+      "tier-shimmer bg-[linear-gradient(110deg,#0b0b0f,#5c4708,#b8860b,#ffd700,#fff3b0,#b8860b,#0b0b0f)]",
+    numberClass:
+      "bg-[linear-gradient(110deg,#78350f,#b8860b,#ffd700,#b8860b,#78350f)] bg-[length:200%_100%] tier-shimmer bg-clip-text text-transparent",
+    labelClass:
+      "bg-[linear-gradient(110deg,#b8860b,#ffd700,#b8860b)] bg-clip-text text-transparent",
+    spinSec: 2.2,
+    arcStops: [
+      { offset: "0%", color: "#0b0b0f" },
+      { offset: "40%", color: "#b8860b" },
+      { offset: "75%", color: "#ffd700" },
+      { offset: "100%", color: "#fff3b0" },
+    ],
+  },
+  quasar: {
+    name: "quasar",
+    label: "QUASAR",
+    ring: "conic-gradient(from 0deg, #f5f3ff, #8b5cf6, #4c1d95, #06b6d4, #f5f3ff)",
+    ringInner:
+      "conic-gradient(from 180deg, #06b6d4, #f5f3ff, #4c1d95, #8b5cf6, #06b6d4)",
+    glow: ["#8b5cf6", "#06b6d4"],
+    wrapper:
+      "tier-shimmer bg-[linear-gradient(110deg,#f5f3ff,#8b5cf6,#4c1d95,#06b6d4,#a5f3fc,#f5f3ff)]",
+    numberClass:
+      "bg-[linear-gradient(110deg,#6d28d9,#8b5cf6,#06b6d4,#6d28d9)] bg-[length:200%_100%] tier-shimmer bg-clip-text text-transparent drop-shadow-[0_0_10px_rgba(139,92,246,0.55)]",
+    labelClass:
+      "bg-[linear-gradient(110deg,#7c3aed,#06b6d4,#7c3aed)] bg-clip-text text-transparent",
+    spinSec: 2,
+    arcStops: [
+      { offset: "0%", color: "#f5f3ff" },
+      { offset: "40%", color: "#8b5cf6" },
+      { offset: "75%", color: "#4c1d95" },
+      { offset: "100%", color: "#06b6d4" },
+    ],
+  },
+  singularity: {
+    name: "singularity",
+    label: "SINGULARITY",
+    ring: "conic-gradient(from 0deg, #000000, #ff0044, #ffee00, #00ccff, #6633ff, #ff00cc, #000000)",
+    ringInner:
+      "conic-gradient(from 180deg, #00ccff, #000000, #ff00cc, #ffee00, #6633ff, #ff0044, #00ccff)",
+    glow: ["#ff00cc", "#00ccff"],
+    wrapper:
+      "tier-shimmer bg-[linear-gradient(110deg,#000000,#ff0044,#ffee00,#00ccff,#6633ff,#ff00cc,#000000)]",
+    numberClass:
+      "bg-[linear-gradient(110deg,#ff0044,#ffee00,#00ccff,#6633ff,#ff00cc,#ff0044)] bg-[length:200%_100%] tier-shimmer bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(255,0,204,0.5)]",
+    labelClass:
+      "bg-[linear-gradient(110deg,#ff0044,#00ccff,#ff00cc,#ff0044)] bg-clip-text text-transparent",
+    spinSec: 1.8,
+    arcStops: [
+      { offset: "0%", color: "#ff0044" },
+      { offset: "25%", color: "#ffee00" },
+      { offset: "50%", color: "#00ccff" },
+      { offset: "75%", color: "#6633ff" },
+      { offset: "100%", color: "#ff00cc" },
+    ],
+  },
 };
 
 export type TierLadder = { threshold: number; tier: TierName }[];
@@ -288,6 +424,13 @@ export const POINTS_LADDER: TierLadder = [
   { threshold: 800, tier: "rainbow" },
   { threshold: 900, tier: "rainbowPrismatic" },
   { threshold: 1000, tier: "prismatic" },
+  // ここから先は到達間隔を広げ、長期のやり込み枠にする
+  { threshold: 1200, tier: "supernova" },
+  { threshold: 1600, tier: "nebula" },
+  { threshold: 2100, tier: "aurora" },
+  { threshold: 2700, tier: "eclipse" },
+  { threshold: 3500, tier: "quasar" },
+  { threshold: 5000, tier: "singularity" },
 ];
 
 /** 月の作業時間 (分単位)。5 時間ごとに切り替え、最大 50h で PRISMATIC。 */

@@ -21,6 +21,7 @@ export default function TierPicker({ state }: { state: TierState }) {
   const current = result?.state ?? state;
   const unlocked = new Set(current.unlocked);
   const isAuto = current.preference === null;
+  const locked = POINTS_LADDER.filter((step) => !unlocked.has(step.tier));
 
   return (
     <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
@@ -50,26 +51,9 @@ export default function TierPicker({ state }: { state: TierState }) {
           </button>
         </form>
 
-        {POINTS_LADDER.map((step) => {
+        {POINTS_LADDER.filter((step) => unlocked.has(step.tier)).map((step) => {
           const style = TIER_STYLES[step.tier];
-          const available = unlocked.has(step.tier);
           const selected = current.preference === step.tier;
-
-          if (!available) {
-            return (
-              <span
-                key={step.tier}
-                title={`${step.threshold}pt で解放`}
-                className="flex items-center gap-1.5 rounded-full border border-dashed border-zinc-300 px-3 py-1.5 text-xs text-zinc-400 dark:border-zinc-700"
-              >
-                <span aria-hidden="true">🔒</span>
-                {style.label}
-                <span className="font-mono tabular-nums">
-                  {step.threshold}pt
-                </span>
-              </span>
-            );
-          }
 
           return (
             <form action={action} key={step.tier}>
@@ -91,6 +75,30 @@ export default function TierPicker({ state }: { state: TierState }) {
           );
         })}
       </div>
+
+      {/* 未解放は数が多いので折りたたむ */}
+      {locked.length > 0 && (
+        <details className="mt-4">
+          <summary className="cursor-pointer text-xs text-zinc-500 dark:text-zinc-400">
+            未解放のランク（{locked.length}）
+          </summary>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {locked.map((step) => (
+              <span
+                key={step.tier}
+                title={`${step.threshold}pt で解放`}
+                className="flex items-center gap-1.5 rounded-full border border-dashed border-zinc-300 px-3 py-1.5 text-xs text-zinc-400 dark:border-zinc-700"
+              >
+                <span aria-hidden="true">🔒</span>
+                {TIER_STYLES[step.tier].label}
+                <span className="font-mono tabular-nums">
+                  {step.threshold.toLocaleString()}pt
+                </span>
+              </span>
+            ))}
+          </div>
+        </details>
+      )}
 
       {result && (
         <p
