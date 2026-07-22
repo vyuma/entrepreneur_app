@@ -3,11 +3,10 @@
 - /competitions : 締切が近いコンペを3件表示
 - /entry <url>  : 応募エントリを登録
 - 締切3日前リマインド
-- 成果 (achieve) 登録時のお祝い通知
 """
 
 import logging
-from datetime import date, datetime, timezone
+from datetime import date
 
 import discord
 from discord import app_commands
@@ -23,12 +22,11 @@ logger = logging.getLogger(__name__)
 
 # 締切の何日前にリマインドするか
 REMIND_DAYS = 3
-# リマインド・お祝いの巡回間隔（秒）
+# 締切リマインドの巡回間隔（秒）
 NOTIFY_INTERVAL = 60 * 30
 
 BRAND_GREEN = 0x2EA84A
 BRAND_ORANGE = 0xE85A1C
-BRAND_BLUE = 0x1D6FCE
 
 
 def _parse_date(value: str | None) -> date | None:
@@ -83,7 +81,6 @@ class CompetitionCog(commands.Cog):
         self.bot = bot
         # 同一エントリに何度もリマインドしないための記録 (entry_id -> 送信日)
         self._reminded: dict[str, date] = {}
-        self._celebrated: set[str] = set()
         self.notify_loop.start()
 
     async def cog_unload(self) -> None:
@@ -180,7 +177,7 @@ class CompetitionCog(commands.Cog):
 
     @tasks.loop(seconds=NOTIFY_INTERVAL)
     async def notify_loop(self) -> None:
-        """締切リマインドと成果のお祝いを送信する。"""
+        """締切リマインドを送信する。"""
         if not self.bot.is_ready():
             return
 
@@ -196,8 +193,6 @@ class CompetitionCog(commands.Cog):
             for entry, user in entries:
                 if entry.status in ("challenge", "wait"):
                     await self._maybe_remind(entry, user, today)
-                elif entry.status == "achieve":
-                    await self._maybe_celebrate(entry, user)
         except Exception:
             logger.exception("Failed to run competition notify loop")
         finally:
@@ -226,37 +221,6 @@ class CompetitionCog(commands.Cog):
         )
         await channel.send(f"<@{user.discord_id}>", embed=embed)
         self._reminded[entry.id] = today
-
-    async def _maybe_celebrate(self, entry: CompetitionEntry, user: User) -> None:
-        if entry.id in self._celebrated:
-            return
-        # 直近24時間以内に確定したものだけを祝う（起動時の一斉送信を防ぐ）
-        if entry.decided_at is None:
-            self._celebrated.add(entry.id)
-            return
-        decided = entry.decided_at
-        if decided.tzinfo is None:
-            decided = decided.replace(tzinfo=timezone.utc)
-        if (datetime.now(timezone.utc) - decided).total_seconds() > 86400:
-            self._celebrated.add(entry.id)
-            return
-
-        channel = await _user_channel(self.bot, user)
-        if channel is None:
-            self._celebrated.add(entry.id)
-            return
-
-        embed = discord.Embed(
-            title="🎉 成果おめでとうございます！",
-            description=(
-                f"**{entry.name}**\n"
-                f"{entry.result or '成果を獲得しました'}\n\n"
-                "活動実績として自動申請されました。管理者の承認をお待ちください。"
-            ),
-            color=BRAND_BLUE,
-        )
-        await channel.send(f"<@{user.discord_id}>", embed=embed)
-        self._celebrated.add(entry.id)
 
     @notify_loop.before_loop
     async def before_notify_loop(self) -> None:
