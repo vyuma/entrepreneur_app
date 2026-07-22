@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     ADMIN_API_TOKEN: Optional[str] = None
     # master 権限を持つ唯一のユーザーの Discord ID。DBからは変更できない
     MASTER_DISCORD_ID: Optional[str] = None
+    # 案内文に載せるアプリのURL
+    APP_URL: str = "https://nuestar.yuma-dev.uk"
 
 
 settings = Settings()

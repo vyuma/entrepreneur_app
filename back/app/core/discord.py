@@ -367,3 +367,68 @@ def unlock_user_channel(channel_id: str, discord_id: str) -> None:
             },
         )
         res.raise_for_status()
+
+
+def post_channel_welcome(channel_id: str, discord_id: str, username: str) -> None:
+    """新しく作った times チャンネルに使い方の案内を投稿する。
+
+    本人をメンションして、最初に何をすればよいかが分かるようにする。
+    """
+    with httpx.Client() as client:
+        client.post(
+            f"{DISCORD_API}/channels/{channel_id}/messages",
+            headers=_headers(),
+            json={
+                "content": f"<@{discord_id}> ようこそ！ここは {username} さん専用の times チャンネルです 🎉",
+                "embeds": [
+                    {
+                        "title": "times の使い方",
+                        "color": 0x2EA84A,
+                        "description": (
+                            "作業した時間をこのチャンネルに書き込むと、"
+                            "**自動で記録されてアントレポイントになります。**"
+                        ),
+                        "fields": [
+                            {
+                                "name": "① 作業時間を書き込む",
+                                "value": (
+                                    "例:\n"
+                                    "`3時間20分 プレゼン資料つくった`\n"
+                                    "`1時間半 リサーチ`\n"
+                                    "`45分`\n\n"
+                                    "「1時間半」は90分として記録されます。"
+                                    "作業内容は書いても書かなくてもOKです。"
+                                ),
+                                "inline": False,
+                            },
+                            {
+                                "name": "② Bot が返信したら記録完了",
+                                "value": (
+                                    "✅ が付いて「〇時間を記録しました！」と返ってきます。\n"
+                                    "※ `13:00` のような**時刻の書き方では記録されません**。"
+                                    "「3時間」のように長さで書いてください。"
+                                ),
+                                "inline": False,
+                            },
+                            {
+                                "name": "③ アプリで確認する",
+                                "value": (
+                                    f"[アントレアプリを開く]({settings.APP_URL})\n"
+                                    "累計ポイント・TIER・ポートフォリオが見られます。\n"
+                                    "毎日ログインボーナス（最大50pt）も忘れずに！"
+                                ),
+                                "inline": False,
+                            },
+                            {
+                                "name": "みんなに公開されています",
+                                "value": (
+                                    "この times は他のメンバーも見られます。"
+                                    "お互いの進捗に応援を送り合いましょう 👏"
+                                ),
+                                "inline": False,
+                            },
+                        ],
+                    }
+                ],
+            },
+        )

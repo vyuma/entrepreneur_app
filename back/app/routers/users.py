@@ -26,6 +26,12 @@ def _setup_new_user(user_id: str, discord_id: str, username: str, created_at: st
                 db.commit()
         finally:
             db.close()
+        # 使い方の案内を本人メンション付きで投稿する
+        try:
+            discord_api.post_channel_welcome(channel_id, discord_id, username)
+        except Exception as e:
+            print(f"[Discord welcome error] {e}")
+
         discord_api.post_admin_notification(discord_id, username, created_at)
     except Exception as e:
         print(f"[Discord setup error] {e}")
