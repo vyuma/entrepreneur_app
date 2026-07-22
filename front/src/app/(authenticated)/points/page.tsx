@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { apiFetch } from "@/lib/api";
 import PointsHero from "./PointsHero";
+import TierRoadmap from "./TierRoadmap";
 
 type PointsData = {
   total_points: number;
@@ -121,6 +122,9 @@ export default async function PointsPage() {
         totalMinutes={data.total_minutes}
         daysSinceJoined={data.days_since_joined}
       />
+
+      {/* ランクのステップアップ */}
+      <TierRoadmap totalPoints={data.total_points} />
 
       {/* 実績 */}
       <div className="flex flex-col gap-4">

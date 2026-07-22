@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { type ClaimState, claimLoginBonus } from "@/actions/login-bonus";
 import { POINTS_LADDER, resolveTier, TIER_STYLES } from "@/lib/tiers";
@@ -70,13 +71,19 @@ export default function LoginBonusCard({
             </p>
             {nextRank ? (
               <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                次のランクまで {remaining}pt
+                次の{TIER_STYLES[nextRank.tier].label}まで {remaining}pt
               </p>
             ) : (
               <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
                 最高ランク到達
               </p>
             )}
+            <Link
+              href="/points"
+              className="mt-0.5 inline-block text-[11px] text-zinc-400 hover:underline"
+            >
+              ランクの上がり方を見る →
+            </Link>
           </div>
         </div>
 
