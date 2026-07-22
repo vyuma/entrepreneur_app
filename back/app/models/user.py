@@ -24,4 +24,6 @@ class User(Base):
     role: Mapped[str] = mapped_column(String, nullable=False, default="member", server_default="member")
     # 論理削除。値が入っているユーザーは一覧・集計から除外される
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    # 表示に使うティア色。未設定なら現在ランクを使う。到達済みの色のみ設定できる
+    display_tier: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

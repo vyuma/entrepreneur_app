@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { POINTS_LADDER, resolveTier } from "@/lib/tiers";
+import type { TierName } from "@/lib/tiers";
+import { POINTS_LADDER, resolveTier, TIER_STYLES } from "@/lib/tiers";
 
 type Props = {
   totalPoints: number;
@@ -46,8 +47,12 @@ export default function PointsHero({
   timePoints,
   totalMinutes,
   daysSinceJoined,
-}: Props) {
-  const tier = resolveTier(totalPoints, POINTS_LADDER);
+  displayTier,
+}: Props & { displayTier?: TierName }) {
+  // 本人が選んだ色があればそれを使い、無ければ現在ランク
+  const tier = displayTier
+    ? (TIER_STYLES[displayTier] ?? resolveTier(totalPoints, POINTS_LADDER))
+    : resolveTier(totalPoints, POINTS_LADDER);
   const displayed = useCountUp(totalPoints);
 
   return (

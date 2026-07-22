@@ -33,8 +33,10 @@ export default function LoginBonusCard({
   const current = state?.result?.status ?? status;
   const titleTier = TIER_STYLES[current.title_tier] ?? TIER_STYLES.entry;
 
-  // 累計アントレポイントの現在ランク
-  const rank = resolveTier(current.total_points, POINTS_LADDER);
+  // 本人が選んだ表示色（未設定なら現在ランク）
+  const rank =
+    TIER_STYLES[current.display_tier] ??
+    resolveTier(current.total_points, POINTS_LADDER);
   const nextRank = POINTS_LADDER.find(
     (step) => step.threshold > current.total_points,
   );

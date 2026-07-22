@@ -142,7 +142,7 @@ export default function TierRoadmap({ totalPoints }: { totalPoints: number }) {
               </span>
 
               <span
-                className={`font-mono text-xs tracking-[0.16em] ${
+                className={`min-w-0 truncate font-mono text-xs tracking-[0.16em] ${
                   reached ? style.labelClass : "text-zinc-400"
                 } ${isCurrent ? "font-bold" : ""}`}
               >
@@ -151,19 +151,19 @@ export default function TierRoadmap({ totalPoints }: { totalPoints: number }) {
 
               {isCurrent && (
                 <span
-                  className="rounded-full px-2 py-0.5 text-[10px] font-medium text-white"
+                  className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium text-white"
                   style={{ backgroundColor: "var(--brand-green)" }}
                 >
                   現在
                 </span>
               )}
               {isNext && (
-                <span className="rounded-full border border-zinc-300 px-2 py-0.5 text-[10px] text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                <span className="shrink-0 rounded-full border border-zinc-300 px-2 py-0.5 text-[10px] text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
                   次
                 </span>
               )}
 
-              <span className="ml-auto font-mono text-[11px] tabular-nums text-zinc-400">
+              <span className="ml-auto shrink-0 font-mono text-[11px] tabular-nums text-zinc-400">
                 {step.threshold.toLocaleString()}pt
               </span>
             </li>

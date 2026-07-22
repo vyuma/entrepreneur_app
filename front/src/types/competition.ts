@@ -1,3 +1,5 @@
+import type { TierName } from "@/lib/tiers";
+
 export type Competition = {
   id: number;
   url: string;
@@ -100,6 +102,7 @@ export type Portfolio = {
   business_desc: string | null;
   sns_links: Record<string, string> | null;
   public: boolean;
+  display_tier: TierName;
   total_points: number;
   total_hours: number;
   achievement_count: number;

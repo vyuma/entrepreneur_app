@@ -14,6 +14,7 @@ from app.models.point_log import PointLog
 from app.models.time_log import TimeLog
 from app.models.user import User
 from app.models.user_skill import UserSkill
+from app.services import tiers
 
 router = APIRouter()
 
@@ -42,6 +43,7 @@ class PortfolioResponse(BaseModel):
     business_desc: Optional[str]
     sns_links: Optional[dict[str, Any]]
     public: bool
+    display_tier: str
     total_points: int
     total_hours: int
     achievement_count: int
@@ -109,6 +111,9 @@ def _build(db: Session, user: User) -> PortfolioResponse:
         business_desc=user.business_desc,
         sns_links=user.sns_links,
         public=bool(user.portfolio_public),
+        display_tier=tiers.resolve_display_tier(
+            user.display_tier, activity_points + minutes // 60
+        ),
         total_points=activity_points + minutes // 60,
         total_hours=minutes // 60,
         achievement_count=len(achievements),

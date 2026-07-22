@@ -11,6 +11,7 @@ from app.models.login_bonus import LoginBonus
 from app.models.point_log import PointLog
 from app.models.time_log import TimeLog
 from app.services import login_bonus as service
+from app.services import tiers
 from app.services.competition_entry import user_or_404
 
 router = APIRouter()
@@ -41,8 +42,9 @@ class LoginBonusStatus(BaseModel):
     # 直近の受け取り日（カレンダー表示用）
     recent_dates: list[date]
     rewards: list[RewardStep]
-    # 累計アントレポイントと現在のランク判定用
+    # 累計アントレポイントと表示ランク
     total_points: int
+    display_tier: str
 
 
 class ClaimResult(BaseModel):
@@ -91,6 +93,9 @@ def _build_status(db: Session, user, today: date) -> LoginBonusStatus:
         recent_dates=[r[0] for r in recent],
         rewards=[RewardStep(days=d, points=p) for d, p in service.STREAK_REWARDS],
         total_points=int(activity_points) + minutes // 60,
+        display_tier=tiers.resolve_display_tier(
+            user.display_tier, int(activity_points) + minutes // 60
+        ),
     )
 
 

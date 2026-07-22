@@ -15,6 +15,7 @@ export type LoginBonusStatus = {
   recent_dates: string[];
   rewards: RewardStep[];
   total_points: number;
+  display_tier: TierName;
 };
 
 export type ClaimResult = {
@@ -39,4 +40,5 @@ export const EMPTY_STATUS: LoginBonusStatus = {
   recent_dates: [],
   rewards: [],
   total_points: 0,
+  display_tier: "entry",
 };

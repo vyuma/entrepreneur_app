@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { apiFetch } from "@/lib/api";
+import { POINTS_LADDER, resolveTier, TIER_STYLES } from "@/lib/tiers";
 import type { Portfolio } from "@/types/competition";
 import PortfolioActions from "./PortfolioActions";
 
@@ -47,141 +48,183 @@ export default async function PortfolioPage({
   }
 
   const isOwner = viewer !== undefined && viewer === portfolio.discord_id;
+  // 累計ポイントから現在のランクを求め、ページ全体の装飾に使う
+  const tier =
+    TIER_STYLES[portfolio.display_tier] ??
+    resolveTier(portfolio.total_points, POINTS_LADDER);
 
   return (
     <main className="bg-grid mx-auto min-h-screen max-w-3xl px-4 py-10 sm:px-6 print:max-w-none print:py-0">
-      {/* ヘッダー */}
-      <header className="flex flex-col gap-4 border-b border-zinc-200 pb-6 dark:border-zinc-800">
-        <div className="flex items-center gap-4">
-          {portfolio.avatar_url ? (
-            <Image
-              src={portfolio.avatar_url}
-              alt={portfolio.username}
-              width={64}
-              height={64}
-              className="rounded-full"
-            />
-          ) : (
-            <div className="h-16 w-16 rounded-full bg-zinc-200 dark:bg-zinc-700" />
-          )}
-          <div className="min-w-0">
-            <h1 className="text-2xl font-semibold text-black dark:text-zinc-50">
-              {portfolio.display_name || portfolio.username}
-            </h1>
-            <p className="text-sm text-zinc-500">@{portfolio.username}</p>
-          </div>
-        </div>
-
-        {portfolio.bio && (
-          <p className="whitespace-pre-wrap text-sm text-zinc-600 dark:text-zinc-400">
-            {portfolio.bio}
-          </p>
-        )}
-
-        {portfolio.business_desc && (
-          <p className="whitespace-pre-wrap text-sm text-zinc-600 dark:text-zinc-400">
-            {portfolio.business_desc}
-          </p>
-        )}
-
-        <dl className="flex flex-wrap gap-6">
-          {[
-            {
-              label: "ポイント",
-              value: `${portfolio.total_points}`,
-              unit: "pt",
-              color: "var(--brand-green)",
-            },
-            {
-              label: "作業時間",
-              value: `${portfolio.total_hours}`,
-              unit: "h",
-              color: "var(--brand-blue)",
-            },
-            // 受賞0件のときはタイル自体を出さない（未登録と実績なしを混同させないため）
-            ...(portfolio.achievement_count > 0
-              ? [
-                  {
-                    label: "受賞・成果",
-                    value: `${portfolio.achievement_count}`,
-                    unit: "件",
-                    color: "var(--brand-orange)",
-                  },
-                ]
-              : []),
-          ].map((stat) => (
-            <div key={stat.label} className="flex flex-col">
-              <dt className="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-400">
-                {stat.label}
-              </dt>
-              <dd
-                className="text-xl font-semibold tabular-nums"
-                style={{ color: stat.color }}
-              >
-                {stat.value}
-                <span className="ml-0.5 text-xs">{stat.unit}</span>
-              </dd>
-            </div>
-          ))}
-        </dl>
-
-        {portfolio.skills.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {portfolio.skills.map((s) => (
-              <span
-                key={s}
-                className="rounded-full border px-2.5 py-0.5 text-xs"
-                style={{
-                  borderColor: "var(--brand-blue)",
-                  color: "var(--brand-blue)",
-                }}
-              >
-                {s}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {portfolio.sns_links && Object.keys(portfolio.sns_links).length > 0 && (
-          <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-            {Object.entries(portfolio.sns_links).map(([label, url]) => (
-              <a
-                key={label}
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm hover:underline"
-                style={{ color: "var(--brand-blue)" }}
-              >
-                {label}
-              </a>
-            ))}
-          </div>
-        )}
-
-        {isOwner && portfolio.achievement_count === 0 && (
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            受賞・成果がまだ登録されていません。
-            <Link
-              href="/achievements"
-              className="ml-1 hover:underline"
-              style={{ color: "var(--brand-green)" }}
+      {/* ヘッダー：外枠と数値を現在のティア色で装飾する */}
+      <header
+        className={`flex flex-col gap-4 rounded-xl p-px ${tier.wrapper} print:bg-none print:p-0`}
+      >
+        <div className="flex flex-col gap-4 rounded-[11px] bg-white p-6 dark:bg-zinc-900 print:p-0">
+          <div className="flex items-center gap-4">
+            {/* アバターもティアのリングで囲む */}
+            <span
+              className="shrink-0 rounded-full p-[2px]"
+              style={{ background: tier.ring }}
             >
-              成果トラッキングから報告する →
-            </Link>
-          </p>
-        )}
+              {portfolio.avatar_url ? (
+                <Image
+                  src={portfolio.avatar_url}
+                  alt={portfolio.username}
+                  width={64}
+                  height={64}
+                  className="block rounded-full bg-white dark:bg-zinc-900"
+                />
+              ) : (
+                <span className="block h-16 w-16 rounded-full bg-zinc-200 dark:bg-zinc-700" />
+              )}
+            </span>
 
-        {isOwner && (
-          <PortfolioActions
-            userId={portfolio.user_id}
-            isPublic={portfolio.public}
-          />
-        )}
+            <div className="min-w-0">
+              <h1 className="text-2xl font-semibold text-black dark:text-zinc-50">
+                {portfolio.display_name || portfolio.username}
+              </h1>
+              <p className="text-sm text-zinc-500">@{portfolio.username}</p>
+              <p
+                className={`mt-1 font-mono text-[11px] font-bold uppercase tracking-[0.25em] ${tier.labelClass}`}
+              >
+                ▸ {tier.label} TIER
+              </p>
+            </div>
+          </div>
+
+          {portfolio.bio && (
+            <p className="whitespace-pre-wrap text-sm text-zinc-600 dark:text-zinc-400">
+              {portfolio.bio}
+            </p>
+          )}
+
+          {portfolio.business_desc && (
+            <p className="whitespace-pre-wrap text-sm text-zinc-600 dark:text-zinc-400">
+              {portfolio.business_desc}
+            </p>
+          )}
+
+          <dl className="flex flex-wrap gap-6">
+            {[
+              {
+                label: "ポイント",
+                value: `${portfolio.total_points}`,
+                unit: "pt",
+                color: "var(--brand-green)",
+              },
+              {
+                label: "作業時間",
+                value: `${portfolio.total_hours}`,
+                unit: "h",
+                color: "var(--brand-blue)",
+              },
+              // 受賞0件のときはタイル自体を出さない（未登録と実績なしを混同させないため）
+              ...(portfolio.achievement_count > 0
+                ? [
+                    {
+                      label: "受賞・成果",
+                      value: `${portfolio.achievement_count}`,
+                      unit: "件",
+                      color: "var(--brand-orange)",
+                    },
+                  ]
+                : []),
+            ].map((stat) => (
+              <div key={stat.label} className="flex flex-col">
+                <dt className="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-400">
+                  {stat.label}
+                </dt>
+                <dd
+                  // 累計ポイントだけはティアのグラデーションで見せる
+                  className={`text-xl font-semibold tabular-nums ${
+                    stat.label === "ポイント" ? tier.numberClass : ""
+                  }`}
+                  style={
+                    stat.label === "ポイント"
+                      ? tier.numberStyle
+                      : { color: stat.color }
+                  }
+                >
+                  {stat.value}
+                  <span className="ml-0.5 text-xs">{stat.unit}</span>
+                </dd>
+              </div>
+            ))}
+          </dl>
+
+          {portfolio.skills.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {portfolio.skills.map((s) => (
+                <span
+                  key={s}
+                  className="rounded-full border px-2.5 py-0.5 text-xs"
+                  style={{
+                    borderColor: "var(--brand-blue)",
+                    color: "var(--brand-blue)",
+                  }}
+                >
+                  {s}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {portfolio.sns_links &&
+            Object.keys(portfolio.sns_links).length > 0 && (
+              <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                {Object.entries(portfolio.sns_links).map(([label, url]) => (
+                  <a
+                    key={label}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm hover:underline"
+                    style={{ color: "var(--brand-blue)" }}
+                  >
+                    {label}
+                  </a>
+                ))}
+              </div>
+            )}
+
+          {isOwner && portfolio.achievement_count === 0 && (
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              受賞・成果がまだ登録されていません。
+              <Link
+                href="/achievements"
+                className="ml-1 hover:underline"
+                style={{ color: "var(--brand-green)" }}
+              >
+                成果トラッキングから報告する →
+              </Link>
+            </p>
+          )}
+
+          {isOwner && (
+            <PortfolioActions
+              userId={portfolio.user_id}
+              isPublic={portfolio.public}
+            />
+          )}
+        </div>
       </header>
 
       {/* 時系列 */}
-      <section className="flex flex-col gap-6 pt-8">
+      <section className="flex flex-col gap-6 pt-10">
+        <div className="flex items-center gap-3">
+          <h2 className="shrink-0 font-mono text-[11px] font-bold uppercase tracking-[0.25em] text-zinc-400">
+            Activity Log
+          </h2>
+          {/* ブランドグラデーションの区切り線 */}
+          <span
+            aria-hidden="true"
+            className="h-px flex-1 bg-gradient-to-r from-[var(--brand-green)] via-[var(--brand-orange)] to-transparent opacity-60"
+          />
+          <span className="shrink-0 font-mono text-[11px] tabular-nums text-zinc-400">
+            {portfolio.items.length} 件
+          </span>
+        </div>
+
         {portfolio.items.length === 0 ? (
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
             まだ公開できる活動がありません。

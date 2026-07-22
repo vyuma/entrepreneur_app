@@ -27,4 +27,5 @@ class UserResponse(BaseModel):
     sns_links: Optional[dict]
     discord_channel_id: Optional[str]
     portfolio_public: bool = False
+    display_tier: Optional[str] = None
     created_at: datetime

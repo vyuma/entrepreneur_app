@@ -1,6 +1,8 @@
+import type { TierState } from "@/actions/tier";
 import { auth } from "@/auth";
 import { apiFetch } from "@/lib/api";
 import PointsHero from "./PointsHero";
+import TierPicker from "./TierPicker";
 import TierRoadmap from "./TierRoadmap";
 
 type PointsData = {
@@ -94,8 +96,12 @@ export default async function PointsPage() {
     total_activities: 0,
     logs: [],
   };
+  let tierState: TierState | null = null;
   try {
-    data = await apiFetch(`/api/points/me?discord_id=${discordId}`);
+    [data, tierState] = await Promise.all([
+      apiFetch(`/api/points/me?discord_id=${discordId}`),
+      apiFetch(`/api/tier?discord_id=${discordId}`),
+    ]);
   } catch {
     // バックエンド未起動時はゼロ表示
   }
@@ -121,10 +127,14 @@ export default async function PointsPage() {
         timePoints={data.time_points}
         totalMinutes={data.total_minutes}
         daysSinceJoined={data.days_since_joined}
+        displayTier={tierState?.display_tier}
       />
 
       {/* ランクのステップアップ */}
       <TierRoadmap totalPoints={data.total_points} />
+
+      {/* 到達済みの色から選ぶ */}
+      {tierState && <TierPicker state={tierState} />}
 
       {/* 実績 */}
       <div className="flex flex-col gap-4">
