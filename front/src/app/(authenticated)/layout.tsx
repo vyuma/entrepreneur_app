@@ -222,42 +222,42 @@ export default async function AuthenticatedLayout({
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[var(--brand-orange)] to-transparent opacity-60"
         />
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
           <Link
             href="/dashboard"
             className="group flex items-center"
             aria-label="NueStar"
           >
-            <span className="relative block h-10 w-32 overflow-hidden sm:h-12 sm:w-44">
+            <span className="relative block h-9 w-24 shrink-0 overflow-hidden sm:h-11 sm:w-36">
               <Image
                 src={LOGO_SRC}
                 alt="NueStar logo"
                 fill
                 priority
-                sizes="(min-width: 640px) 176px, 128px"
+                sizes="(min-width: 640px) 144px, 96px"
                 className="scale-[2.1] object-contain object-center transition-transform duration-500 group-hover:scale-[2.2]"
               />
             </span>
           </Link>
-          <div className="flex items-center gap-2 text-sm text-zinc-600 sm:gap-4 dark:text-zinc-400">
+          <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto text-sm text-zinc-600 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-1 dark:text-zinc-400">
             {navItems.map(({ href, label, Icon }) => (
               <Link
                 key={href}
                 href={href}
                 aria-label={label}
                 title={label}
-                className="group relative flex items-center gap-1.5 rounded-md px-2 py-1.5 tracking-wide transition-colors hover:text-black dark:hover:text-zinc-50"
+                className="group relative flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-1.5 py-1.5 tracking-wide transition-colors hover:text-black sm:px-2 dark:hover:text-zinc-50"
               >
                 <Icon className="h-[18px] w-[18px] shrink-0" />
-                <span className="hidden lg:inline">{label}</span>
+                <span className="hidden xl:inline">{label}</span>
                 <span
                   aria-hidden="true"
                   className="pointer-events-none absolute inset-x-2 -bottom-0.5 h-px origin-left scale-x-0 bg-gradient-to-r from-[var(--brand-green)] to-[var(--brand-orange)] transition-transform duration-300 group-hover:scale-x-100"
                 />
               </Link>
             ))}
-            <span className="ml-1 flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
-              <span className="hidden font-mono text-[11px] uppercase tracking-[0.18em] md:inline">
+            <span className="ml-1 flex shrink-0 items-center gap-2 text-zinc-500 dark:text-zinc-400">
+              <span className="hidden max-w-[8rem] truncate font-mono text-[11px] uppercase tracking-[0.18em] lg:inline">
                 {session.user.name}
               </span>
               {session.user.image && (
