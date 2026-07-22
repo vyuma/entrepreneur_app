@@ -7,6 +7,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Integer,
     String,
     Text,
     UniqueConstraint,
@@ -40,6 +41,10 @@ class NueStarEvent(Base):
     phase: Mapped[str] = mapped_column(String, nullable=False, default="entry")
     # スライドURLの提出を必須にするか
     slide_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="1")
+    # タイムテーブルの開始時刻（"20:00" 形式）
+    start_time: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    # 発表と発表の間に挟む転換時間（秒）
+    buffer_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=60, server_default="60")
     created_by: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
@@ -61,6 +66,15 @@ class EventEntry(Base):
     summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     team_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
+    # 発表者のDiscordネーム（複数可・カンマ区切りで自由入力）
+    presenters: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    # 発表時間・質疑時間（秒）。0 は質疑なし
+    talk_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=180, server_default="180")
+    qa_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    # 発表順（ランダム抽選や手動並べ替えで設定）
+    order_index: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    # 開始時刻を個別に上書きしたい場合（"20:15" 形式）
+    scheduled_at: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     # 承認後に本人が提出する
     slide_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     reject_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -84,4 +98,26 @@ class EventVote(Base):
         String(36), ForeignKey("nuestar_event_entries.id"), nullable=False
     )
     comment: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+# よく使う賞のプリセット。管理者は自由に名前を付けられる
+AWARD_PRESETS = ("オーディエンス賞", "NueStar賞", "最優秀賞", "審査員特別賞")
+
+
+class EventAward(Base):
+    """イベントで授与した賞。1つの発表に複数の賞を出せる。"""
+
+    __tablename__ = "nuestar_event_awards"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    event_id: Mapped[str] = mapped_column(String(36), ForeignKey("nuestar_events.id"), nullable=False)
+    entry_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("nuestar_event_entries.id"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # 授与と同時に付けたアントレポイント（0 なら付与なし）
+    points: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    created_by: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

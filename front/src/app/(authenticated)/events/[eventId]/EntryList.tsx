@@ -2,7 +2,11 @@
 
 import { useActionState } from "react";
 import { castVote, type EventActionResult } from "@/actions/event";
-import type { EventDetail, EventEntry } from "@/types/event";
+import {
+  type EventDetail,
+  type EventEntry,
+  formatSeconds,
+} from "@/types/event";
 
 const RANK_COLOR = [
   "var(--brand-yellow)",

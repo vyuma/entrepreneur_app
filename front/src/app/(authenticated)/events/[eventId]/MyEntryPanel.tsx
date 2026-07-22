@@ -7,7 +7,13 @@ import {
   submitSlide,
   withdrawEntry,
 } from "@/actions/event";
-import { ENTRY_STATUS_INFO, type EventDetail } from "@/types/event";
+import {
+  ENTRY_STATUS_INFO,
+  type EventDetail,
+  formatSeconds,
+  QA_OPTIONS,
+  TALK_OPTIONS,
+} from "@/types/event";
 
 const inputClass =
   "rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-[var(--brand-green)] dark:border-zinc-700 dark:bg-zinc-950";
@@ -64,30 +70,133 @@ export default function MyEntryPanel({ detail }: { detail: EventDetail }) {
           <input type="hidden" name="event_id" value={event.id} />
 
           <label className="flex flex-col gap-1 text-xs text-zinc-500 dark:text-zinc-400">
-            発表タイトル
+            発表テーマ（30文字程度）
             <input
               type="text"
               name="title"
               required
               maxLength={120}
-              placeholder="例: AIで家計簿を自動化する"
+              placeholder="例: アプリケーションを自動作成するAIシステムの提案"
               className={inputClass}
             />
           </label>
+
+          <label className="flex flex-col gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+            チーム名もしくは個人名
+            <input
+              type="text"
+              name="team_name"
+              required
+              maxLength={80}
+              placeholder="例: やづや / I arm"
+              className={inputClass}
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+            発表者のDiscordネーム（複数可）
+            <input
+              type="text"
+              name="presenters"
+              required
+              maxLength={200}
+              placeholder="例: やづや、たろう"
+              className={inputClass}
+            />
+          </label>
+
+          {/* 発表時間 */}
+          <fieldset className="flex flex-col gap-2">
+            <legend className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+              発表時間
+            </legend>
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+              時間は厳守です。目標とするコンテストの時間に合わせてください。超過した場合は強制終了します。
+            </p>
+            <div className="flex flex-col gap-1">
+              {TALK_OPTIONS.map((o, i) => (
+                <label
+                  key={o.seconds}
+                  className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300"
+                >
+                  <input
+                    type="radio"
+                    name="talk_seconds"
+                    value={o.seconds}
+                    defaultChecked={i === 3}
+                    className="accent-[var(--brand-green)]"
+                  />
+                  {o.label}
+                  {o.hint && (
+                    <span className="text-xs text-zinc-400">（{o.hint}）</span>
+                  )}
+                </label>
+              ))}
+              <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+                その他
+                <input
+                  type="number"
+                  name="talk_custom_min"
+                  min={1}
+                  max={60}
+                  placeholder="分"
+                  className="w-20 rounded-lg border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+                />
+                分
+              </label>
+            </div>
+          </fieldset>
+
+          {/* 質疑時間 */}
+          <fieldset className="flex flex-col gap-2">
+            <legend className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+              質問時間の有無と時間
+            </legend>
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+              当日は観客または主催者からリアルタイムで質問します。
+            </p>
+            <div className="flex flex-col gap-1">
+              {QA_OPTIONS.map((o, i) => (
+                <label
+                  key={o.seconds}
+                  className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300"
+                >
+                  <input
+                    type="radio"
+                    name="qa_seconds"
+                    value={o.seconds}
+                    defaultChecked={i === 0}
+                    className="accent-[var(--brand-green)]"
+                  />
+                  {o.label}
+                  {o.hint && (
+                    <span className="text-xs text-zinc-400">（{o.hint}）</span>
+                  )}
+                </label>
+              ))}
+              <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+                その他
+                <input
+                  type="number"
+                  name="qa_custom_min"
+                  min={1}
+                  max={60}
+                  placeholder="分"
+                  className="w-20 rounded-lg border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+                />
+                分
+              </label>
+            </div>
+          </fieldset>
 
           <label className="flex flex-col gap-1 text-xs text-zinc-500 dark:text-zinc-400">
             概要（任意）
             <textarea
               name="summary"
               rows={3}
-              placeholder="何を作ったか・どんな課題を解決するか"
+              placeholder="プロジェクトの補足があれば"
               className={inputClass}
             />
-          </label>
-
-          <label className="flex flex-col gap-1 text-xs text-zinc-500 dark:text-zinc-400">
-            チーム名（任意）
-            <input type="text" name="team_name" className={inputClass} />
           </label>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -125,6 +234,15 @@ export default function MyEntryPanel({ detail }: { detail: EventDetail }) {
 
       <p className="mt-3 font-medium text-black dark:text-zinc-50">
         {entry.title}
+      </p>
+      <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+        {entry.team_name}
+        {entry.presenters && `・発表者: ${entry.presenters}`}
+        {" ・ "}
+        発表 {formatSeconds(entry.talk_seconds)}
+        {entry.qa_seconds > 0
+          ? ` ＋ 質疑 ${formatSeconds(entry.qa_seconds)}`
+          : "（質疑なし）"}
       </p>
       {entry.summary && (
         <p className="mt-1 whitespace-pre-wrap text-sm text-zinc-600 dark:text-zinc-400">

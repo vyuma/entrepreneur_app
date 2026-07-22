@@ -13,6 +13,9 @@ class EventCreate(BaseModel):
     event_date: Optional[date] = None
     venue: Optional[str] = None
     slide_required: bool = True
+    # タイムテーブルの開始時刻 "20:00"
+    start_time: Optional[str] = None
+    buffer_seconds: int = Field(default=60, ge=0, le=1800)
 
 
 class EventUpdate(BaseModel):
@@ -22,6 +25,8 @@ class EventUpdate(BaseModel):
     venue: Optional[str] = None
     slide_required: Optional[bool] = None
     phase: Optional[str] = None
+    start_time: Optional[str] = None
+    buffer_seconds: Optional[int] = Field(default=None, ge=0, le=1800)
 
 
 class EventSummary(BaseModel):
@@ -34,7 +39,11 @@ class EventSummary(BaseModel):
     venue: Optional[str]
     phase: str
     slide_required: bool
+    start_time: Optional[str]
+    buffer_seconds: int
     created_at: datetime
+    # 全発表の所要時間合計（転換込み・秒）
+    total_seconds: int = 0
     # 一覧表示用の集計
     entry_count: int = 0
     approved_count: int = 0
@@ -48,9 +57,15 @@ class EventSummary(BaseModel):
 
 
 class EntryApply(BaseModel):
+    # 発表テーマ（30文字程度を想定）
     title: str = Field(min_length=1, max_length=120)
     summary: Optional[str] = None
-    team_name: Optional[str] = None
+    # チーム名もしくは個人名
+    team_name: str = Field(min_length=1, max_length=80)
+    # 発表者のDiscordネーム（複数可）
+    presenters: str = Field(min_length=1, max_length=200)
+    talk_seconds: int = Field(ge=10, le=3600)
+    qa_seconds: int = Field(default=0, ge=0, le=3600)
 
 
 class SlideSubmit(BaseModel):
@@ -71,6 +86,11 @@ class EventEntryResponse(BaseModel):
     title: str
     summary: Optional[str]
     team_name: Optional[str]
+    presenters: Optional[str]
+    talk_seconds: int
+    qa_seconds: int
+    order_index: Optional[int]
+    scheduled_at: Optional[str]
     status: str
     slide_url: Optional[str]
     reject_reason: Optional[str]
@@ -84,6 +104,8 @@ class EventEntryResponse(BaseModel):
     rank: Optional[int] = None
     # 閲覧者がこの発表に投票したか
     voted_by_me: bool = False
+    # 受賞した賞
+    awards: list["AwardResponse"] = []
 
 
 # --- 投票 ---
@@ -115,3 +137,64 @@ class EventDetail(BaseModel):
     # 管理者のみ
     pending_entries: list[EventEntryResponse] = []
     voters: list[VoterRow] = []
+    timetable: list["TimetableRow"] = []
+    awards: list["AwardResponse"] = []
+
+
+# --- タイムテーブル ---
+
+
+class TimetableRow(BaseModel):
+    entry_id: str
+    order: int
+    start_time: Optional[str]
+    end_time: Optional[str]
+    talk_seconds: int
+    qa_seconds: int
+    duration_seconds: int
+    duration_label: str
+    # 管理者が時刻を固定した行か
+    is_fixed: bool
+
+
+class OrderUpdate(BaseModel):
+    """並べ替え後の entry_id を先頭から順に並べたもの。"""
+
+    entry_ids: list[str]
+
+
+class ScheduleUpdate(BaseModel):
+    # "20:15" または null（自動計算に戻す）
+    scheduled_at: Optional[str] = None
+
+
+class EntryTimeUpdate(BaseModel):
+    """管理者が発表時間を調整する。"""
+
+    talk_seconds: Optional[int] = Field(default=None, ge=10, le=3600)
+    qa_seconds: Optional[int] = Field(default=None, ge=0, le=3600)
+
+
+# --- 賞 ---
+
+
+class AwardCreate(BaseModel):
+    entry_id: str
+    name: str = Field(min_length=1, max_length=60)
+    note: Optional[str] = None
+    # 授与と同時に付けるアントレポイント
+    points: int = Field(default=0, ge=0, le=1000)
+
+
+class AwardResponse(BaseModel):
+    model_config = {"from_attributes": True}
+
+    id: str
+    entry_id: str
+    name: str
+    note: Optional[str]
+    points: int
+    created_at: datetime
+    # 表示用
+    entry_title: Optional[str] = None
+    winner_name: Optional[str] = None

@@ -55,7 +55,29 @@ export default function CreateEventForm() {
 
         <label className="flex flex-col gap-1 text-xs text-zinc-500 dark:text-zinc-400">
           会場
-          <input type="text" name="venue" className={inputClass} />
+          <input
+            type="text"
+            name="venue"
+            placeholder="例: NueStar Discord"
+            className={inputClass}
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+          開始時刻（タイムテーブルの起点）
+          <input type="time" name="start_time" className={inputClass} />
+        </label>
+
+        <label className="flex flex-col gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+          転換時間（秒）
+          <input
+            type="number"
+            name="buffer_seconds"
+            defaultValue={60}
+            min={0}
+            max={1800}
+            className={inputClass}
+          />
         </label>
 
         <label className="flex items-center gap-2 text-sm text-zinc-700 sm:col-span-2 dark:text-zinc-300">

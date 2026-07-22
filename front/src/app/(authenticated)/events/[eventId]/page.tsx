@@ -4,8 +4,10 @@ import { auth } from "@/auth";
 import { apiFetch } from "@/lib/api";
 import { type EventDetail, PHASE_INFO } from "@/types/event";
 import AdminPanel from "./AdminPanel";
+import AwardPanel from "./AwardPanel";
 import EntryList from "./EntryList";
 import MyEntryPanel from "./MyEntryPanel";
+import Timetable from "./Timetable";
 
 export default async function EventDetailPage({
   params,
@@ -61,7 +63,10 @@ export default async function EventDetailPage({
           {event.event_date && (
             <div className="flex gap-1.5">
               <dt className="text-zinc-400">開催日</dt>
-              <dd>{event.event_date}</dd>
+              <dd>
+                {event.event_date}
+                {event.start_time && ` ${event.start_time}〜`}
+              </dd>
             </div>
           )}
           {event.venue && (
@@ -106,6 +111,11 @@ export default async function EventDetailPage({
       </ol>
 
       {detail.is_admin && <AdminPanel detail={detail} />}
+      {detail.is_admin && detail.entries.length > 0 && (
+        <AwardPanel detail={detail} />
+      )}
+
+      <Timetable detail={detail} />
 
       <MyEntryPanel detail={detail} />
 

@@ -45,7 +45,15 @@ export async function applyToEvent(
         body: JSON.stringify({
           title: formData.get("title"),
           summary: formData.get("summary") || null,
-          team_name: formData.get("team_name") || null,
+          team_name: formData.get("team_name"),
+          presenters: formData.get("presenters"),
+          // 「その他」を選んだ場合は分数入力を優先する
+          talk_seconds:
+            Number(formData.get("talk_custom_min") || 0) * 60 ||
+            Number(formData.get("talk_seconds")),
+          qa_seconds:
+            Number(formData.get("qa_custom_min") || 0) * 60 ||
+            Number(formData.get("qa_seconds")),
         }),
       }),
     "申し込みました。管理者の承認をお待ちください。",
@@ -133,6 +141,8 @@ export async function createEvent(
           event_date: formData.get("event_date") || null,
           venue: formData.get("venue") || null,
           slide_required: formData.get("slide_required") === "on",
+          start_time: formData.get("start_time") || null,
+          buffer_seconds: Number(formData.get("buffer_seconds") || 60),
         }),
       }),
     "イベントを作成しました。",
@@ -201,5 +211,150 @@ export async function deleteEvent(
       }),
     "イベントを削除しました。",
     ["/events"],
+  );
+}
+
+// --- タイムテーブル（管理者） ---
+
+/** 発表順をランダムに決め直す */
+export async function shuffleOrder(
+  _prev: EventActionResult | null,
+  formData: FormData,
+): Promise<EventActionResult> {
+  const discordId = await actorId();
+  const eventId = formData.get("event_id") as string;
+
+  return run(
+    () =>
+      apiFetch(`/api/events/${eventId}/shuffle?discord_id=${discordId}`, {
+        method: "POST",
+      }),
+    "発表順をランダムに決めました。",
+    [`/events/${eventId}`],
+  );
+}
+
+/**
+ * 発表順を並べ替える。
+ * entry_ids に並べ替え後の順序を渡す。開催中でもいつでも変更できる。
+ */
+export async function reorderEntries(
+  _prev: EventActionResult | null,
+  formData: FormData,
+): Promise<EventActionResult> {
+  const discordId = await actorId();
+  const eventId = formData.get("event_id") as string;
+  const entryIds = (formData.get("entry_ids") as string)
+    .split(",")
+    .filter(Boolean);
+
+  return run(
+    () =>
+      apiFetch(`/api/events/${eventId}/order?discord_id=${discordId}`, {
+        method: "PUT",
+        body: JSON.stringify({ entry_ids: entryIds }),
+      }),
+    "発表順を更新しました。",
+    [`/events/${eventId}`],
+  );
+}
+
+/** 特定の発表の開始時刻を固定する（空欄で自動計算に戻す） */
+export async function setEntrySchedule(
+  _prev: EventActionResult | null,
+  formData: FormData,
+): Promise<EventActionResult> {
+  const discordId = await actorId();
+  const eventId = formData.get("event_id") as string;
+  const entryId = formData.get("entry_id") as string;
+
+  return run(
+    () =>
+      apiFetch(
+        `/api/events/${eventId}/entries/${entryId}/schedule?discord_id=${discordId}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            scheduled_at: formData.get("scheduled_at") || null,
+          }),
+        },
+      ),
+    "開始時刻を更新しました。",
+    [`/events/${eventId}`],
+  );
+}
+
+/** 発表時間・質疑時間を管理者が調整する */
+export async function setEntryTime(
+  _prev: EventActionResult | null,
+  formData: FormData,
+): Promise<EventActionResult> {
+  const discordId = await actorId();
+  const eventId = formData.get("event_id") as string;
+  const entryId = formData.get("entry_id") as string;
+
+  return run(
+    () =>
+      apiFetch(
+        `/api/events/${eventId}/entries/${entryId}/time?discord_id=${discordId}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            talk_seconds: Number(formData.get("talk_seconds")),
+            qa_seconds: Number(formData.get("qa_seconds")),
+          }),
+        },
+      ),
+    "時間を更新しました。",
+    [`/events/${eventId}`],
+  );
+}
+
+// --- 賞（管理者） ---
+
+export async function grantAward(
+  _prev: EventActionResult | null,
+  formData: FormData,
+): Promise<EventActionResult> {
+  const discordId = await actorId();
+  const eventId = formData.get("event_id") as string;
+  const name =
+    (formData.get("name_custom") as string)?.trim() ||
+    (formData.get("name") as string);
+
+  if (!name) return { ok: false, message: "賞の名前を入力してください" };
+
+  return run(
+    () =>
+      apiFetch(`/api/events/${eventId}/awards?discord_id=${discordId}`, {
+        method: "POST",
+        body: JSON.stringify({
+          entry_id: formData.get("entry_id"),
+          name,
+          note: formData.get("note") || null,
+          points: Number(formData.get("points") || 0),
+        }),
+      }),
+    `「${name}」を授与しました。`,
+    [`/events/${eventId}`, "/points", "/members"],
+  );
+}
+
+export async function revokeAward(
+  _prev: EventActionResult | null,
+  formData: FormData,
+): Promise<EventActionResult> {
+  const discordId = await actorId();
+  const eventId = formData.get("event_id") as string;
+  const awardId = formData.get("award_id") as string;
+
+  return run(
+    () =>
+      apiFetch(
+        `/api/events/${eventId}/awards/${awardId}?discord_id=${discordId}`,
+        { method: "DELETE" },
+      ),
+    "賞を取り消しました。付与したポイントも打ち消しました。",
+    [`/events/${eventId}`, "/points", "/members"],
   );
 }

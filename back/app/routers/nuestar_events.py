@@ -20,23 +20,32 @@ from app.core.auth import Actor, get_actor, require_admin
 from app.core.database import get_db
 from app.models.nuestar_event import (
     EVENT_PHASES,
+    EventAward,
     EventEntry,
     EventVote,
     NueStarEvent,
 )
+from app.models.point_log import PointLog
 from app.models.user import User
 from app.schemas.nuestar_event import (
+    AwardCreate,
+    AwardResponse,
     EntryApply,
+    EntryTimeUpdate,
     EntryReview,
     EventCreate,
     EventDetail,
     EventEntryResponse,
     EventSummary,
     EventUpdate,
+    OrderUpdate,
+    ScheduleUpdate,
     SlideSubmit,
+    TimetableRow,
     VoteCreate,
     VoterRow,
 )
+from app.services import timetable as tt
 
 router = APIRouter()
 
@@ -96,6 +105,15 @@ def _summary(db: Session, event: NueStarEvent, actor: Actor) -> EventSummary:
     res.vote_count = (
         db.query(func.count(EventVote.id)).filter(EventVote.event_id == event.id).scalar() or 0
     )
+
+    approved = (
+        db.query(EventEntry)
+        .filter(EventEntry.event_id == event.id, EventEntry.status == "approved")
+        .all()
+    )
+    res.total_seconds = sum(e.talk_seconds + e.qa_seconds for e in approved) + max(
+        0, len(approved) - 1
+    ) * (event.buffer_seconds or 0)
 
     if actor.user:
         mine = (
@@ -171,6 +189,7 @@ def delete_event(
     _actor: Actor = Depends(require_admin),
 ):
     event = _event_or_404(db, event_id)
+    db.query(EventAward).filter(EventAward.event_id == event.id).delete()
     db.query(EventVote).filter(EventVote.event_id == event.id).delete()
     db.query(EventEntry).filter(EventEntry.event_id == event.id).delete()
     db.delete(event)
@@ -231,9 +250,37 @@ def get_event(
         )
         for e in approved
     ]
-    public_entries.sort(
-        key=lambda e: (e.rank if e.rank is not None else 999, e.title)
-    )
+    # 結果発表後は順位順、それ以外は発表順に並べる
+    if event.phase == "published":
+        public_entries.sort(key=lambda e: (e.rank if e.rank is not None else 999, e.title))
+    else:
+        public_entries.sort(
+            key=lambda e: (
+                e.order_index if e.order_index is not None else 10**6,
+                e.created_at,
+            )
+        )
+
+    # 賞を紐づける
+    awards = db.query(EventAward).filter(EventAward.event_id == event.id).all()
+    entry_titles = {e.id: e.title for e in entries}
+    entry_owner = {e.id: users.get(e.user_id) for e in entries}
+
+    def _award_res(a: EventAward) -> AwardResponse:
+        res = AwardResponse.model_validate(a)
+        res.entry_title = entry_titles.get(a.entry_id)
+        owner = entry_owner.get(a.entry_id)
+        res.winner_name = (owner.display_name or owner.username) if owner else None
+        return res
+
+    award_list = [_award_res(a) for a in awards]
+    by_entry: dict[str, list[AwardResponse]] = {}
+    for a in award_list:
+        by_entry.setdefault(a.entry_id, []).append(a)
+    # 賞は結果発表後（または管理者）にのみ見せる
+    if results_visible:
+        for pe in public_entries:
+            pe.awards = by_entry.get(pe.id, [])
 
     my_entry = None
     if me:
@@ -275,6 +322,8 @@ def get_event(
         is_admin=actor.is_admin,
         pending_entries=pending,
         voters=voters,
+        timetable=[TimetableRow(**row) for row in tt.build_timetable(event, approved)],
+        awards=award_list if results_visible else [],
     )
 
 
@@ -454,4 +503,181 @@ def vote(
         )
     db.commit()
 
+    return get_event(event_id, db, actor)
+
+
+# --- タイムテーブル（管理者のみ） ---
+
+
+def _approved(db: Session, event_id: str) -> list[EventEntry]:
+    return (
+        db.query(EventEntry)
+        .filter(EventEntry.event_id == event_id, EventEntry.status == "approved")
+        .all()
+    )
+
+
+@router.post("/{event_id}/shuffle", response_model=EventDetail)
+def shuffle_entries(
+    event_id: str,
+    db: Session = Depends(get_db),
+    actor: Actor = Depends(require_admin),
+):
+    """発表順をランダムに決める。"""
+    event = _event_or_404(db, event_id)
+    tt.shuffle_order(_approved(db, event.id))
+    db.commit()
+    return get_event(event_id, db, actor)
+
+
+@router.put("/{event_id}/order", response_model=EventDetail)
+def set_order(
+    event_id: str,
+    body: OrderUpdate,
+    db: Session = Depends(get_db),
+    actor: Actor = Depends(require_admin),
+):
+    """発表順を明示的に並べ替える。渡されなかった発表は末尾に回す。"""
+    event = _event_or_404(db, event_id)
+    entries = {e.id: e for e in _approved(db, event.id)}
+
+    index = 1
+    for entry_id in body.entry_ids:
+        entry = entries.pop(entry_id, None)
+        if entry is not None:
+            entry.order_index = index
+            index += 1
+    for entry in tt.sort_entries(list(entries.values())):
+        entry.order_index = index
+        index += 1
+
+    db.commit()
+    return get_event(event_id, db, actor)
+
+
+@router.put("/{event_id}/entries/{entry_id}/schedule", response_model=EventDetail)
+def set_schedule(
+    event_id: str,
+    entry_id: str,
+    body: ScheduleUpdate,
+    db: Session = Depends(get_db),
+    actor: Actor = Depends(require_admin),
+):
+    """特定の発表の開始時刻を固定する（null で自動計算に戻す）。"""
+    _event_or_404(db, event_id)
+    entry = _entry_or_404(db, entry_id)
+    if entry.event_id != event_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="イベントが一致しません")
+
+    value = (body.scheduled_at or "").strip() or None
+    if value is not None and tt.parse_hhmm(value) is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="時刻は HH:MM 形式で入力してください",
+        )
+
+    entry.scheduled_at = value
+    db.commit()
+    return get_event(event_id, db, actor)
+
+
+@router.put("/{event_id}/entries/{entry_id}/time", response_model=EventDetail)
+def set_entry_time(
+    event_id: str,
+    entry_id: str,
+    body: EntryTimeUpdate,
+    db: Session = Depends(get_db),
+    actor: Actor = Depends(require_admin),
+):
+    """管理者が発表時間・質疑時間を調整する。"""
+    _event_or_404(db, event_id)
+    entry = _entry_or_404(db, entry_id)
+    if entry.event_id != event_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="イベントが一致しません")
+
+    data = body.model_dump(exclude_unset=True)
+    for key, value in data.items():
+        if value is not None:
+            setattr(entry, key, value)
+    db.commit()
+    return get_event(event_id, db, actor)
+
+
+# --- 賞（管理者のみ） ---
+
+
+@router.post("/{event_id}/awards", response_model=EventDetail, status_code=status.HTTP_201_CREATED)
+def create_award(
+    event_id: str,
+    body: AwardCreate,
+    db: Session = Depends(get_db),
+    actor: Actor = Depends(require_admin),
+):
+    """賞を授与する。points を指定するとアントレポイントも同時に付与する。"""
+    event = _event_or_404(db, event_id)
+    entry = _entry_or_404(db, body.entry_id)
+    if entry.event_id != event.id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="イベントが一致しません")
+    if entry.status != "approved":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="承認された発表にのみ授与できます"
+        )
+
+    award = EventAward(
+        event_id=event.id,
+        entry_id=entry.id,
+        name=body.name.strip(),
+        note=body.note,
+        points=body.points,
+        created_by=actor.user.id if actor.user else None,
+    )
+    db.add(award)
+
+    if body.points > 0:
+        now = datetime.now(timezone.utc)
+        db.add(
+            PointLog(
+                user_id=entry.user_id,
+                points=body.points,
+                reason=f"award:{event.name}／{award.name}",
+                reference_id=entry.id,
+                period_year=now.year,
+                period_month=now.month,
+            )
+        )
+
+    db.commit()
+    return get_event(event_id, db, actor)
+
+
+@router.delete("/{event_id}/awards/{award_id}", response_model=EventDetail)
+def delete_award(
+    event_id: str,
+    award_id: str,
+    db: Session = Depends(get_db),
+    actor: Actor = Depends(require_admin),
+):
+    """賞を取り消す。付与したポイントも打ち消す。"""
+    _event_or_404(db, event_id)
+    award = db.query(EventAward).filter(EventAward.id == award_id).first()
+    if not award or award.event_id != event_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="賞が見つかりません")
+
+    if award.points > 0:
+        entry = db.query(EventEntry).filter(EventEntry.id == award.entry_id).first()
+        if entry:
+            now = datetime.now(timezone.utc)
+            db.add(
+                PointLog(
+                    user_id=entry.user_id,
+                    points=-award.points,
+                    reason=f"award_revoked:{award.name}",
+                    reference_id=entry.id,
+                    period_year=now.year,
+                    period_month=now.month,
+                )
+            )
+
+    db.delete(award)
+    db.commit()
     return get_event(event_id, db, actor)

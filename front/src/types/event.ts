@@ -2,6 +2,29 @@ export type EventPhase = "entry" | "voting" | "closed" | "published";
 
 export type EntryStatus = "pending" | "approved" | "rejected";
 
+export type Award = {
+  id: string;
+  entry_id: string;
+  name: string;
+  note: string | null;
+  points: number;
+  created_at: string;
+  entry_title: string | null;
+  winner_name: string | null;
+};
+
+export type TimetableRow = {
+  entry_id: string;
+  order: number;
+  start_time: string | null;
+  end_time: string | null;
+  talk_seconds: number;
+  qa_seconds: number;
+  duration_seconds: number;
+  duration_label: string;
+  is_fixed: boolean;
+};
+
 export type EventSummary = {
   id: string;
   name: string;
@@ -10,7 +33,10 @@ export type EventSummary = {
   venue: string | null;
   phase: EventPhase;
   slide_required: boolean;
+  start_time: string | null;
+  buffer_seconds: number;
   created_at: string;
+  total_seconds: number;
   entry_count: number;
   approved_count: number;
   vote_count: number;
@@ -25,6 +51,11 @@ export type EventEntry = {
   title: string;
   summary: string | null;
   team_name: string | null;
+  presenters: string | null;
+  talk_seconds: number;
+  qa_seconds: number;
+  order_index: number | null;
+  scheduled_at: string | null;
   status: EntryStatus;
   slide_url: string | null;
   reject_reason: string | null;
@@ -35,6 +66,7 @@ export type EventEntry = {
   vote_count: number | null;
   rank: number | null;
   voted_by_me: boolean;
+  awards: Award[];
 };
 
 export type VoterRow = {
@@ -52,7 +84,47 @@ export type EventDetail = {
   is_admin: boolean;
   pending_entries: EventEntry[];
   voters: VoterRow[];
+  timetable: TimetableRow[];
+  awards: Award[];
 };
+
+/** 申込フォームの発表時間の選択肢（秒） */
+export const TALK_OPTIONS = [
+  { seconds: 30, label: "30秒", hint: "エレベーターピッチ" },
+  { seconds: 60, label: "1分", hint: "" },
+  { seconds: 120, label: "2分", hint: "ハッカソン中間発表" },
+  { seconds: 180, label: "3分", hint: "Tongaliアイディアピッチ" },
+  { seconds: 300, label: "5分", hint: "ビジコン準決勝・標準" },
+  { seconds: 420, label: "7分", hint: "ビジコン決勝" },
+  { seconds: 600, label: "10分", hint: "Lightning Talk" },
+  { seconds: 720, label: "12分", hint: "オーディション" },
+] as const;
+
+/** 質疑時間の選択肢（秒）。0 は「必要ない」 */
+export const QA_OPTIONS = [
+  { seconds: 0, label: "必要ない", hint: "" },
+  { seconds: 60, label: "1分", hint: "標準1質問" },
+  { seconds: 180, label: "3分", hint: "標準2〜3質問" },
+  { seconds: 300, label: "5分", hint: "アイディアピッチ等" },
+  { seconds: 420, label: "7分", hint: "" },
+  { seconds: 600, label: "10分", hint: "" },
+] as const;
+
+/** 賞のプリセット */
+export const AWARD_PRESETS = [
+  "オーディエンス賞",
+  "NueStar賞",
+  "最優秀賞",
+  "審査員特別賞",
+] as const;
+
+export function formatSeconds(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  if (m && s) return `${m}分${s}秒`;
+  if (m) return `${m}分`;
+  return `${s}秒`;
+}
 
 /** フェーズの表示情報。色はブランドカラーのみ使う。 */
 export const PHASE_INFO: Record<
