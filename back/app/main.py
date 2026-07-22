@@ -13,6 +13,7 @@ from app.routers import (
     competitions,
     dashboard,
     portfolio,
+    admin,
 )
 
 
@@ -42,6 +43,7 @@ app.include_router(points.router, prefix="/api/points", tags=["points"])
 app.include_router(competitions.router, prefix="/api/competitions", tags=["competitions"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["dashboard"])
 app.include_router(portfolio.router, prefix="/api/portfolio", tags=["portfolio"])
+app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 
 
 @app.get("/health")

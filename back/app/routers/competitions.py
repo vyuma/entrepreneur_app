@@ -16,7 +16,6 @@ from app.schemas.competition import (
     EntryCreate,
     EntryResponse,
     EntryUpdate,
-    InternalEventCreate,
     InternalEventResponse,
 )
 from app.services import competitions as comp_api
@@ -138,36 +137,7 @@ def list_internal_events(db: Session = Depends(get_db), _=Depends(verify_token))
     return db.query(InternalEvent).order_by(InternalEvent.event_date.asc()).all()
 
 
-@router.post(
-    "/internal-events",
-    response_model=InternalEventResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-def create_internal_event(
-    discord_id: str,
-    body: InternalEventCreate,
-    db: Session = Depends(get_db),
-    _=Depends(verify_token),
-):
-    user = user_or_404(db, discord_id)
-    event = InternalEvent(created_by=user.id, **body.model_dump())
-    db.add(event)
-    db.commit()
-    db.refresh(event)
-    return event
-
-
-@router.delete("/internal-events/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_internal_event(
-    event_id: str,
-    db: Session = Depends(get_db),
-    _=Depends(verify_token),
-):
-    event = db.query(InternalEvent).filter(InternalEvent.id == event_id).first()
-    if not event:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
-    db.delete(event)
-    db.commit()
+# イベントの作成・削除は管理者のみ。/api/admin/internal-events を使う。
 
 
 # --- 応募トラッキング ---

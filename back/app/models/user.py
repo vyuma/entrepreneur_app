@@ -20,4 +20,8 @@ class User(Base):
     discord_channel_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     # ポートフォリオを未ログインでも閲覧可能にするか
     portfolio_public: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
+    # "member" / "admin"。master は環境変数 MASTER_DISCORD_ID で判定するためDBには持たない
+    role: Mapped[str] = mapped_column(String, nullable=False, default="member", server_default="member")
+    # 論理削除。値が入っているユーザーは一覧・集計から除外される
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

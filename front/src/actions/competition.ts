@@ -86,32 +86,3 @@ export async function deleteEntry(formData: FormData) {
   revalidatePath("/achievements");
   revalidatePath("/dashboard");
 }
-
-/** 自団体イベントを登録する（カレンダーで青く強調表示される） */
-export async function createInternalEvent(formData: FormData) {
-  const discordId = await requireDiscordId();
-
-  await apiFetch(`/api/competitions/internal-events?discord_id=${discordId}`, {
-    method: "POST",
-    body: JSON.stringify({
-      name: formData.get("name"),
-      event_date: formData.get("event_date"),
-      event_end_date: formData.get("event_end_date") || null,
-      venue: formData.get("venue") || null,
-      description: formData.get("description") || null,
-    }),
-  });
-
-  revalidatePath("/competitions");
-}
-
-export async function deleteInternalEvent(formData: FormData) {
-  await requireDiscordId();
-  const eventId = formData.get("event_id") as string;
-
-  await apiFetch(`/api/competitions/internal-events/${eventId}`, {
-    method: "DELETE",
-  });
-
-  revalidatePath("/competitions");
-}

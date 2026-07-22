@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     INTERNAL_API_SECRET: str
     # nuestar コンペAPI 用のトークン（x-admin-token ヘッダに乗せる）
     ADMIN_API_TOKEN: Optional[str] = None
+    # master 権限を持つ唯一のユーザーの Discord ID。DBからは変更できない
+    MASTER_DISCORD_ID: Optional[str] = None
 
 
 settings = Settings()

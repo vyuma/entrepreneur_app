@@ -11,7 +11,6 @@ import {
 } from "@/types/competition";
 import CompetitionCalendar from "./CompetitionCalendar";
 import CompetitionCard from "./CompetitionCard";
-import InternalEventForm from "./InternalEventForm";
 
 type Tab = "list" | "calendar" | "recommend";
 
@@ -166,7 +165,6 @@ export default async function CompetitionsPage({
             competitions={list.items}
             internalEvents={internalEvents}
           />
-          <InternalEventForm events={internalEvents} />
         </>
       )}
 

@@ -50,7 +50,8 @@ def _to_response(
 def list_members(sort: str = "created_at", db: Session = Depends(get_db), _=Depends(verify_token)):
     """sort: created_at / points / hours / achievements / name"""
     from app.models.time_log import TimeLog
-    users = db.query(User).all()
+    # 論理削除されたユーザーは一覧・ランキングから除外する
+    users = db.query(User).filter(User.deleted_at.is_(None)).all()
     point_totals = dict(
         db.query(PointLog.user_id, func.sum(PointLog.points))
         .group_by(PointLog.user_id).all()
@@ -156,7 +157,11 @@ def delete_skill(
 @router.get("/{member_id}", response_model=MemberResponse)
 def get_member(member_id: str, db: Session = Depends(get_db), _=Depends(verify_token)):
     from app.models.time_log import TimeLog
-    user = db.query(User).filter(User.id == member_id).first()
+    user = (
+        db.query(User)
+        .filter(User.id == member_id, User.deleted_at.is_(None))
+        .first()
+    )
     if not user:
         raise HTTPException(status_code=404, detail="Member not found")
     activity_pts = db.query(func.sum(PointLog.points)).filter(PointLog.user_id == user.id).scalar() or 0

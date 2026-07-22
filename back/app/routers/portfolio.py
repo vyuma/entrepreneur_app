@@ -124,7 +124,9 @@ def get_portfolio(
     db: Session = Depends(get_db),
     _=Depends(verify_token),
 ):
-    user = db.query(User).filter(User.id == user_id).first()
+    user = (
+        db.query(User).filter(User.id == user_id, User.deleted_at.is_(None)).first()
+    )
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 

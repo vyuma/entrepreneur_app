@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { SVGProps } from "react";
 import { auth } from "@/auth";
+import { getAdminMe } from "@/lib/admin";
 
 const LOGO_SRC = "/image.png" as const;
 
@@ -128,6 +129,24 @@ function AchievementsIcon(props: IconProps) {
   );
 }
 
+function AdminIcon(props: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      <path d="M12 3l7.5 3v5.5c0 4.3-3 8.2-7.5 9.5-4.5-1.3-7.5-5.2-7.5-9.5V6L12 3Z" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  );
+}
+
 function ProfileIcon(props: IconProps) {
   return (
     <svg
@@ -164,6 +183,12 @@ export default async function AuthenticatedLayout({
     { href: "/points", label: "ポイント", Icon: PointsIcon },
     { href: "/profile", label: "プロフィール", Icon: ProfileIcon },
   ];
+
+  // 管理リンクは権限を持つ人にだけ見せる（本体の保護は /admin 側で行う）
+  const me = await getAdminMe();
+  if (me.is_admin) {
+    navItems.push({ href: "/admin", label: "管理", Icon: AdminIcon });
+  }
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black">
