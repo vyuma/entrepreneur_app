@@ -1,5 +1,4 @@
 import logging
-import re
 
 import discord
 from discord.ext import commands, tasks
@@ -12,6 +11,7 @@ from app.models.activity import Activity
 from app.models.time_log import TimeLog
 from app.models.user import User
 from app.services.activity_review import approve_activity, get_activity_or_404, reject_activity
+from app.services.time_parse import format_duration, parse_minutes, praise_for
 
 logger = logging.getLogger(__name__)
 POLL_SECONDS = 5
@@ -198,40 +198,6 @@ class ActivityReviewView(discord.ui.View):
             await interaction.response.send_message("処理に失敗しました。", ephemeral=True)
 
 
-def _parse_minutes(text: str) -> int:
-    """テキストから時間・分を抽出して合計分数を返す（0なら抽出失敗）"""
-    # 全角数字→半角変換、全角コロン→半角コロン
-    text = text.translate(str.maketrans("０１２３４５６７８９：", "0123456789:"))
-    # 漢数字の簡易変換
-    kanji = {"一": 1, "二": 2, "三": 3, "四": 4, "五": 5,
-             "六": 6, "七": 7, "八": 8, "九": 9, "十": 10}
-    for k, v in kanji.items():
-        text = text.replace(k, str(v))
-
-    total = 0
-    consumed_spans: list[tuple[int, int]] = []
-    # 「H:MM」形式 (例: 3:20 → 200分)
-    for match in re.finditer(r"(?<!\d)(\d{1,2}):([0-5]?\d)(?!\d)", text):
-        total += int(match.group(1)) * 60 + int(match.group(2))
-        consumed_spans.append(match.span())
-    # 「X時間半」は X*60 + 30、「X時間」は X*60
-    for match in re.finditer(r"(\d+(?:\.\d+)?)\s*時間\s*(半)?", text):
-        total += int(float(match.group(1)) * 60)
-        if match.group(2):
-            total += 30
-        consumed_spans.append(match.span())
-    # 「半時間」(数字なしで時間の前に半) → 30分
-    for match in re.finditer(r"半\s*時間", text):
-        if not any(s <= match.start() < e for s, e in consumed_spans):
-            total += 30
-    # 「X分」(H:MM 内の分や、X時間の直後の分以外)
-    for match in re.finditer(r"(\d+)\s*分", text):
-        if any(s <= match.start() < e for s, e in consumed_spans):
-            continue
-        total += int(match.group(1))
-    return min(total, 720)  # 最大12時間(720分)
-
-
 class EntrepreneurBot(commands.Bot):
     def __init__(self) -> None:
         intents = discord.Intents.default()
@@ -266,12 +232,15 @@ class EntrepreneurBot(commands.Bot):
             if str(message.channel.id) != user.discord_channel_id:
                 return
 
-            minutes = _parse_minutes(message.content)
+            minutes = parse_minutes(message.content)
             if minutes > 0:
                 db.add(TimeLog(user_id=user.id, minutes=minutes))
                 db.commit()
                 await message.add_reaction("✅")
-                await message.reply(f"{minutes}分を記録しました！", mention_author=False)
+                await message.reply(
+                    f"{format_duration(minutes)}を記録しました！{praise_for(minutes)}",
+                    mention_author=False,
+                )
         except Exception:
             logger.exception("Failed to process time log message")
         finally:
