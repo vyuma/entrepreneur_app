@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { apiFetch } from "@/lib/api";
 
@@ -204,7 +205,7 @@ export async function deleteEvent(
   const discordId = await actorId();
   const eventId = formData.get("event_id") as string;
 
-  return run(
+  const result = await run(
     () =>
       apiFetch(`/api/events/${eventId}?discord_id=${discordId}`, {
         method: "DELETE",
@@ -212,6 +213,10 @@ export async function deleteEvent(
     "イベントを削除しました。",
     ["/events"],
   );
+
+  // 削除後は詳細ページが存在しないので一覧へ戻す
+  if (result.ok) redirect("/events");
+  return result;
 }
 
 // --- タイムテーブル（管理者） ---

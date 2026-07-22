@@ -15,5 +15,10 @@ export async function apiFetch(path: string, init?: RequestInit) {
     const text = await res.text().catch(() => "");
     throw new Error(`API ${res.status}: ${text}`);
   }
-  return res.json();
+
+  // 204 No Content や空ボディ（DELETE 系）は JSON にできないので null を返す
+  if (res.status === 204) return null;
+  const body = await res.text();
+  if (!body) return null;
+  return JSON.parse(body);
 }

@@ -2,12 +2,12 @@
 
 import { useActionState } from "react";
 import {
-  deleteEvent,
   type EventActionResult,
   reviewEntry,
   setEventPhase,
 } from "@/actions/event";
 import { type EventDetail, type EventPhase, PHASE_INFO } from "@/types/event";
+import DangerZone from "./DangerZone";
 
 const PHASE_ORDER: EventPhase[] = ["entry", "voting", "closed", "published"];
 
@@ -35,11 +35,6 @@ export default function AdminPanel({ detail }: { detail: EventDetail }) {
     EventActionResult | null,
     FormData
   >(reviewEntry, null);
-  const [deleteState, deleteAction] = useActionState<
-    EventActionResult | null,
-    FormData
-  >(deleteEvent, null);
-
   const notVoted = voters.filter((v) => !v.voted);
   const totalVotes = entries.reduce((sum, e) => sum + (e.vote_count ?? 0), 0);
 
@@ -217,29 +212,15 @@ export default function AdminPanel({ detail }: { detail: EventDetail }) {
         </div>
       )}
 
-      {/* 削除 */}
-      <form
-        action={deleteAction}
-        className="border-t border-zinc-100 pt-3 dark:border-zinc-800"
-      >
-        <input type="hidden" name="event_id" value={event.id} />
-        <button
-          type="submit"
-          onClick={(e) => {
-            if (
-              !window.confirm(
-                `「${event.name}」を削除します。申込と投票もすべて消えます。よろしいですか？`,
-              )
-            ) {
-              e.preventDefault();
-            }
-          }}
-          className="text-xs text-zinc-400 transition-colors hover:text-[var(--brand-orange)]"
-        >
-          このイベントを削除
-        </button>
-        <Message state={deleteState} />
-      </form>
+      {/* 削除（誤操作防止のため名前入力を必須にしている） */}
+      <div className="border-t border-zinc-100 pt-3 dark:border-zinc-800">
+        <DangerZone
+          eventId={event.id}
+          eventName={event.name}
+          entryCount={event.entry_count}
+          voteCount={event.vote_count}
+        />
+      </div>
     </section>
   );
 }
