@@ -4,8 +4,10 @@ import { auth } from "@/auth";
 import { apiFetch } from "@/lib/api";
 import type { CardKey } from "@/lib/cards";
 import type { DashboardSummary } from "@/types/competition";
+import { EMPTY_STATUS, type LoginBonusStatus } from "@/types/login-bonus";
 import DashboardSettings from "./DashboardSettings";
 import EntrySummaryCard from "./EntrySummaryCard";
+import LoginBonusCard from "./LoginBonusCard";
 import MonthlyChart from "./MonthlyChart";
 import TimeProgressCard from "./TimeProgressCard";
 import UpcomingDeadlines from "./UpcomingDeadlines";
@@ -48,12 +50,14 @@ export default async function DashboardPage() {
     id: string | null;
     portfolio_public: boolean;
   } = { id: null, portfolio_public: false };
+  let bonus: LoginBonusStatus = EMPTY_STATUS;
 
   try {
-    [summary, dashboard, me] = await Promise.all([
+    [summary, dashboard, me, bonus] = await Promise.all([
       apiFetch(`/api/time-logs/summary?discord_id=${discordId}`),
       apiFetch(`/api/dashboard/summary?discord_id=${discordId}`),
       apiFetch(`/api/users/me?discord_id=${discordId}`),
+      apiFetch(`/api/login-bonus/status?discord_id=${discordId}`),
     ]);
   } catch {
     // バックエンド未起動時はゼロ表示
@@ -72,6 +76,8 @@ export default async function DashboardPage() {
           ホーム
         </h1>
       </div>
+
+      <LoginBonusCard status={bonus} />
 
       <PortfolioCallout
         userId={me.id}

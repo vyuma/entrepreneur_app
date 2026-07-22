@@ -1,6 +1,6 @@
 export default function NotMemberPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-black">
+    <div className="bg-grid flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-black">
       <div className="flex flex-col items-center gap-4 text-center max-w-md">
         <h1 className="text-2xl font-semibold text-black dark:text-zinc-50">
           アクセスできません

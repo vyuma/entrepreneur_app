@@ -24,7 +24,7 @@ export default async function PortfolioPage({
     // 403 は非公開、404 は存在しない
     if (err instanceof Error && err.message.includes("403")) {
       return (
-        <main className="flex min-h-screen items-center justify-center bg-zinc-50 px-6 dark:bg-black">
+        <main className="bg-grid flex min-h-screen items-center justify-center bg-zinc-50 px-6 dark:bg-black">
           <div className="flex max-w-md flex-col items-center gap-3 text-center">
             <h1 className="text-xl font-semibold text-black dark:text-zinc-50">
               このポートフォリオは非公開です
@@ -49,7 +49,7 @@ export default async function PortfolioPage({
   const isOwner = viewer !== undefined && viewer === portfolio.discord_id;
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-10 sm:px-6 print:max-w-none print:py-0">
+    <main className="bg-grid mx-auto min-h-screen max-w-3xl px-4 py-10 sm:px-6 print:max-w-none print:py-0">
       {/* ヘッダー */}
       <header className="flex flex-col gap-4 border-b border-zinc-200 pb-6 dark:border-zinc-800">
         <div className="flex items-center gap-4">

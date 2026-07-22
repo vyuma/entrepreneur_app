@@ -4,7 +4,7 @@ import { signIn } from "next-auth/react";
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-black">
+    <div className="bg-grid flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-black">
       <div className="flex flex-col items-center gap-6 text-center">
         <h1 className="text-3xl font-semibold tracking-tight text-black dark:text-zinc-50">
           Entrepreneur Community

@@ -116,3 +116,62 @@ body {
     filter: drop-shadow(0 0 12px #ff00ff) drop-shadow(0 0 22px #00ff66);
   }
 }
+
+/* ------------------------------------------------------------------
+   グリッド背景
+   ページ全体の下地に薄い方眼を敷く。中央から外側へ向かってフェード
+   させることで、コンテンツの可読性を落とさずに奥行きだけを足す。
+   ------------------------------------------------------------------ */
+.bg-grid {
+  position: relative;
+  isolation: isolate;
+}
+
+.bg-grid::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+  background-size: var(--grid-size) var(--grid-size);
+  /* 上端から下に向かって薄くなる */
+  -webkit-mask-image: radial-gradient(
+    ellipse 100% 70% at 50% 0%,
+    #000 20%,
+    transparent 80%
+  );
+  mask-image: radial-gradient(
+    ellipse 100% 70% at 50% 0%,
+    #000 20%,
+    transparent 80%
+  );
+}
+
+:root {
+  --grid-size: 44px;
+  --grid-line: rgba(9, 9, 11, 0.055);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --grid-line: rgba(255, 255, 255, 0.055);
+  }
+}
+
+/* 動きを減らす設定では装飾を控える */
+@media (prefers-reduced-motion: reduce) {
+  .tier-shimmer,
+  .bg-grid::before {
+    animation: none;
+  }
+}
+
+/* 印刷時は背景グリッドを出さない */
+@media print {
+  .bg-grid::before {
+    display: none;
+  }
+}

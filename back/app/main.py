@@ -14,6 +14,7 @@ from app.routers import (
     dashboard,
     portfolio,
     admin,
+    login_bonus,
 )
 
 
@@ -44,6 +45,7 @@ app.include_router(competitions.router, prefix="/api/competitions", tags=["compe
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["dashboard"])
 app.include_router(portfolio.router, prefix="/api/portfolio", tags=["portfolio"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
+app.include_router(login_bonus.router, prefix="/api/login-bonus", tags=["login-bonus"])
 
 
 @app.get("/health")

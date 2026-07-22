@@ -191,7 +191,7 @@ export default async function AuthenticatedLayout({
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-black">
+    <div className="bg-grid min-h-screen bg-zinc-50 dark:bg-black">
       <nav className="relative border-b border-zinc-200/80 bg-white/80 px-4 py-2 backdrop-blur-md sm:px-6 dark:border-zinc-800/80 dark:bg-zinc-950/70">
         {/* 上端のスキャンライン */}
         <span

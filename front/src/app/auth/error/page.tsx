@@ -45,7 +45,7 @@ export default async function AuthErrorPage({
   const { title, body } = (key && MESSAGES[key]) || FALLBACK;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-6 dark:bg-black">
+    <div className="bg-grid flex min-h-screen items-center justify-center bg-zinc-50 px-6 dark:bg-black">
       <div className="flex max-w-md flex-col items-center gap-4 text-center">
         <span
           className="h-1 w-16 rounded-full"

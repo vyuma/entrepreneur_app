@@ -8,6 +8,9 @@ function reasonLabel(reason: string) {
     return { text: reason.slice(7), manual: true };
   }
   if (reason === "activity") return { text: "活動実績", manual: false };
+  if (reason.startsWith("login_bonus:")) {
+    return { text: `ログインボーナス（${reason.slice(12)}）`, manual: false };
+  }
   return { text: reason, manual: false };
 }
 
