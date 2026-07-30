@@ -28,14 +28,29 @@ function formatDate(iso: string): string {
   }).format(d);
 }
 
+/**
+ * 表紙の取得先を決める。
+ *
+ * 日本語書籍の書影サイトはブラウザから直接読むと弾かれる（同一サイトの Referer が
+ * 必要など）ため、自前の中継 API を通す。Google Books のように直接読めるURLが
+ * 分かっている場合はそちらを優先する。
+ */
+function coverSrc(book: { cover_url: string | null; isbn13?: string }): string {
+  const direct = book.cover_url;
+  // ndlsearch への直リンクは 403 になるので中継に回す
+  if (direct && !direct.includes("ndlsearch.ndl.go.jp")) return direct;
+  return book.isbn13 ? `/api/book-cover/${book.isbn13}` : "";
+}
+
 /** 表紙。画像が無い・読み込めない場合はタイトルの代替表示にする */
 function Cover({
   book,
 }: {
-  book: { cover_url: string | null; title: string };
+  book: { cover_url: string | null; title: string; isbn13?: string };
 }) {
   const [broken, setBroken] = useState(false);
-  const show = book.cover_url && !broken;
+  const src = coverSrc(book);
+  const show = src && !broken;
 
   return (
     <span className="relative block aspect-[3/4] w-full overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-800">
@@ -43,7 +58,7 @@ function Cover({
         /* 外部ドメインの書影なので next/image は使わず素の img で読み込む */
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={book.cover_url ?? ""}
+          src={src}
           alt={`${book.title} の表紙`}
           loading="lazy"
           onError={() => setBroken(true)}

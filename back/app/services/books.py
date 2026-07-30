@@ -22,11 +22,11 @@ logger = logging.getLogger(__name__)
 
 OPENBD_URL = "https://api.openbd.jp/v1/get"
 GOOGLE_BOOKS_URL = "https://www.googleapis.com/books/v1/volumes"
-# 書影の最後の保険。openBD は cover が空のことが多く、Google Books も
-# 洋書以外は弱いため、国立国会図書館のサムネイルURLを組み立てて使う。
-# サーバーからは 403 になることがあるが、実際に読み込むのは利用者のブラウザなので
-# ここでは存在確認をせず URL だけ入れ、表示できなければ画面側で代替表示にする。
-NDL_THUMBNAIL_URL = "https://ndlsearch.ndl.go.jp/thumbnail/{isbn}.jpg"
+# 国会図書館のサムネイルは同一サイトの Referer が無いと WAF に弾かれるため、
+# ブラウザから直リンクできない。書影はフロントの中継API
+# (/api/book-cover/{isbn}) がサーバー側で取得して配るので、
+# ここでは「実際に直接読めるURL」だけを保存し、無ければ None にしておく。
+NDL_THUMBNAIL_PREFIX = "https://ndlsearch.ndl.go.jp/thumbnail/"
 TIMEOUT_SECONDS = 8.0
 # 同じ ISBN を何度も外部に問い合わせないためのキャッシュ
 CACHE_TTL_SECONDS = 60 * 60 * 24
@@ -173,8 +173,12 @@ def _from_google_books(isbn: str) -> dict[str, Any] | None:
 
 
 def is_fallback_cover(url: str | None) -> bool:
-    """書影が「保険で組み立てたURL」かどうか。実物が取れていれば False。"""
-    return bool(url) and url.startswith("https://ndlsearch.ndl.go.jp/thumbnail/")
+    """ブラウザから直接読めない書影URLか。
+
+    以前は国会図書館のURLを保存していたが、直リンクでは 403 になるため
+    「書影なし」と同じ扱いにして引き直しの対象にする。
+    """
+    return bool(url) and url.startswith(NDL_THUMBNAIL_PREFIX)
 
 
 def lookup(isbn: str, force: bool = False) -> dict[str, Any]:
@@ -205,8 +209,6 @@ def lookup(isbn: str, force: bool = False) -> dict[str, Any]:
             logger.warning("書誌情報の取得に失敗しました isbn=%s", isbn, exc_info=True)
             continue
         if data:
-            if not data.get("cover_url"):
-                data["cover_url"] = NDL_THUMBNAIL_URL.format(isbn=isbn)
             _store(isbn, data)
             return data
 
