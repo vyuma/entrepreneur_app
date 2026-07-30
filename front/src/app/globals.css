@@ -107,6 +107,108 @@ body {
 }
 
 /* ------------------------------------------------------------------
+   完了チェックのマイクロインタラクション
+
+   設計の根拠:
+   - 状態変化そのものは 100ms 以内に見えるようにする（人が遅延を感じ始める境界）
+   - 装飾的な動きは 200〜400ms に収める。長いと作業のテンポを邪魔する
+   - 「押した感」はバネ的なオーバーシュート（行き過ぎて戻る）で作る
+   - 完了は達成なので、線形の消化ではなく報酬として弾ける演出を足す
+   - prefers-reduced-motion では動きを止め、色と形の変化だけを残す
+   ------------------------------------------------------------------ */
+
+/* 丸が弾む。行き過ぎてから戻ることでバネらしさを出す */
+@keyframes check-pop {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(0.86);
+  }
+  60% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1.06);
+  }
+}
+.check-pop {
+  animation: check-pop 380ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 押し込んだ瞬間の凹み。指を離す前に反応させる */
+@keyframes check-press {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.92);
+  }
+}
+.check-press {
+  animation: check-press 120ms ease-out;
+}
+
+/* 完了時に外へ広がる波紋 */
+@keyframes check-ripple {
+  0% {
+    opacity: 0.55;
+    transform: scale(0.7);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.1);
+  }
+}
+.check-ripple {
+  animation: check-ripple 520ms ease-out forwards;
+}
+
+/* 放射状に飛ぶ粒。--angle と --distance を各粒に渡す */
+@keyframes check-spark {
+  0% {
+    opacity: 1;
+    transform: rotate(var(--angle)) translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--angle)) translateY(calc(var(--distance) * -1))
+      scale(0.4);
+  }
+}
+.check-spark {
+  animation: check-spark 460ms cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+}
+
+/* モバイルのナビドロワーが左から入る */
+@keyframes drawer-in {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+/* 失敗時に短く横に振れる（取り消されたことを体で分かるようにする） */
+@keyframes shake-x {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
+}
+.shake-x {
+  animation: shake-x 240ms ease-in-out;
+}
+
+/* ------------------------------------------------------------------
    グリッド背景
    ページ全体の下地に薄い方眼を敷く。中央から外側へ向かってフェード
    させることで、コンテンツの可読性を落とさずに奥行きだけを足す。
@@ -153,8 +255,18 @@ body {
 /* 動きを減らす設定では装飾を控える */
 @media (prefers-reduced-motion: reduce) {
   .tier-shimmer,
-  .bg-grid::before {
+  .bg-grid::before,
+  .check-pop,
+  .check-press,
+  .check-ripple,
+  .check-spark,
+  .shake-x {
     animation: none;
+  }
+  /* 粒と波紋は動きが本体なので、動かせないなら出さない */
+  .check-ripple,
+  .check-spark {
+    display: none;
   }
 }
 

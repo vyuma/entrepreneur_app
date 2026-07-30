@@ -3,10 +3,37 @@
 import { useEffect, useState, useTransition } from "react";
 import { createTodo, deleteTodo, toggleTodo, updateTodo } from "@/actions/todo";
 import BigCheck from "@/app/components/BigCheck";
+import { hapticCancel, hapticSuccess } from "@/lib/haptics";
 import type { Todo } from "@/types/todo";
 
 const inputClass =
   "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-[var(--brand-green)] dark:border-zinc-700 dark:bg-zinc-950";
+
+/** UTC で保存された日時を日本時間の "7/30 20:45" 形式にする */
+function formatStamp(iso: string): string {
+  // バックエンドは naive な UTC を返すので、Z が無ければ補って解釈する
+  const normalized = /[Z+]|\d-\d\d:\d\d$/.test(iso) ? iso : `${iso}Z`;
+  const d = new Date(normalized);
+  if (Number.isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat("ja-JP", {
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Tokyo",
+  }).format(d);
+}
+
+/** 経過日数から「今日 / 昨日 / n日前」を作る */
+function relativeDays(iso: string): string {
+  const normalized = /[Z+]|\d-\d\d:\d\d$/.test(iso) ? iso : `${iso}Z`;
+  const then = new Date(normalized).getTime();
+  if (Number.isNaN(then)) return "";
+  const days = Math.floor((Date.now() - then) / 86_400_000);
+  if (days <= 0) return "今日";
+  if (days === 1) return "昨日";
+  return `${days}日前`;
+}
 
 /** 未完了を上、完了済みを下に並べる（サーバーと同じ順序をクライアントでも保つ） */
 function sortTodos(items: Todo[]): Todo[] {
@@ -23,6 +50,8 @@ export default function TodoList({ todos }: { todos: Todo[] }) {
     null,
   );
   const [pendingId, setPendingId] = useState<string | null>(null);
+  // 保存に失敗した行を短く揺らして知らせる
+  const [failedId, setFailedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDetail, setEditDetail] = useState("");
@@ -39,13 +68,32 @@ export default function TodoList({ todos }: { todos: Todo[] }) {
       sortTodos(prev.map((t) => (t.id === todo.id ? todo : t))),
     );
 
+  /**
+   * 完了・未完了を切り替える。
+   * 通信の往復を待つと反応が 100ms を超えて「重い」と感じるため、
+   * 先に画面を切り替えてから保存し、失敗したときだけ元に戻す。
+   */
   const doToggle = (todo: Todo) => {
-    setPendingId(todo.id);
+    const next = !todo.is_done;
+    replace({
+      ...todo,
+      is_done: next,
+      done_at: next ? new Date().toISOString() : null,
+    });
+    if (next) hapticSuccess();
+
     startTransition(async () => {
-      const res = await toggleTodo(todo.id, !todo.is_done);
-      if (res.todo) replace(res.todo);
+      const res = await toggleTodo(todo.id, next);
+      if (res.todo) {
+        replace(res.todo);
+      } else {
+        // 保存できなかったので元の状態に戻す
+        replace(todo);
+        hapticCancel();
+        setFailedId(todo.id);
+        setTimeout(() => setFailedId(null), 400);
+      }
       setMessage({ ok: res.ok, text: res.message });
-      setPendingId(null);
     });
   };
 
@@ -179,6 +227,7 @@ export default function TodoList({ todos }: { todos: Todo[] }) {
                 key={todo.id}
                 todo={todo}
                 pending={pendingId === todo.id}
+                failed={failedId === todo.id}
                 editing={editingId === todo.id}
                 editTitle={editTitle}
                 editDetail={editDetail}
@@ -207,6 +256,7 @@ export default function TodoList({ todos }: { todos: Todo[] }) {
                 key={todo.id}
                 todo={todo}
                 pending={pendingId === todo.id}
+                failed={failedId === todo.id}
                 editing={editingId === todo.id}
                 editTitle={editTitle}
                 editDetail={editDetail}
@@ -229,6 +279,7 @@ export default function TodoList({ todos }: { todos: Todo[] }) {
 type RowProps = {
   todo: Todo;
   pending: boolean;
+  failed: boolean;
   editing: boolean;
   editTitle: string;
   editDetail: string;
@@ -244,6 +295,7 @@ type RowProps = {
 function TodoRow({
   todo,
   pending,
+  failed,
   editing,
   editTitle,
   editDetail,
@@ -257,7 +309,9 @@ function TodoRow({
 }: RowProps) {
   return (
     <li
-      className="rounded-xl border p-3.5 transition-all duration-200 sm:p-4"
+      className={`rounded-xl border p-3.5 transition-all duration-200 sm:p-4 ${
+        failed ? "shake-x" : ""
+      }`}
       style={{
         borderColor: todo.is_done
           ? "var(--brand-green)"
@@ -355,6 +409,18 @@ function TodoRow({
                   タップして詳細を追加
                 </span>
               )}
+              {/* 作成日時と、完了していれば完了日時 */}
+              <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[10px] text-zinc-400">
+                <span title={`作成: ${formatStamp(todo.created_at)}`}>
+                  作成 {formatStamp(todo.created_at)}（
+                  {relativeDays(todo.created_at)}）
+                </span>
+                {todo.is_done && todo.done_at && (
+                  <span style={{ color: "var(--brand-green)" }}>
+                    完了 {formatStamp(todo.done_at)}
+                  </span>
+                )}
+              </span>
             </button>
             {todo.source === "discord" && (
               <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">

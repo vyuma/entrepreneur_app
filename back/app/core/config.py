@@ -1,4 +1,5 @@
 from typing import Optional
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,8 +17,14 @@ class Settings(BaseSettings):
     ADMIN_API_TOKEN: Optional[str] = None
     # master 権限を持つ唯一のユーザーの Discord ID。DBからは変更できない
     MASTER_DISCORD_ID: Optional[str] = None
-    # 案内文に載せるアプリのURL
-    APP_URL: str = "https://nuestar.yuma-dev.uk"
+    # Discord から開くアプリのURL（TODO の「アプリで開く」や times の案内文で使う）
+    APP_URL: str = "https://entrepreneur-app.vercel.app"
+
+    @field_validator("APP_URL")
+    @classmethod
+    def _strip_trailing_slash(cls, value: str) -> str:
+        """末尾の / を落とす。f"{APP_URL}/todos" が // にならないようにする。"""
+        return value.rstrip("/")
 
 
 settings = Settings()

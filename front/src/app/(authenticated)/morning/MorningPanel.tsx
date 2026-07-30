@@ -8,20 +8,9 @@ import {
 } from "@/actions/morning";
 import BigCheck from "@/app/components/BigCheck";
 import PointRoulette from "@/app/components/PointRoulette";
+import { hapticCancel, hapticSuccess } from "@/lib/haptics";
 import type { MorningStatus } from "@/types/morning";
-
-/** 直近7日分のチェックイン状況（今日を右端に置く） */
-function recentWeek(recent: string[]): { date: string; done: boolean }[] {
-  const set = new Set(recent.map((d) => d.slice(0, 10)));
-  const days: { date: string; done: boolean }[] = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    days.push({ date: key, done: set.has(key) });
-  }
-  return days;
-}
+import StampCard from "./StampCard";
 
 type Message = { ok: boolean; text: string } | null;
 
@@ -29,7 +18,8 @@ export default function MorningPanel({ status }: { status: MorningStatus }) {
   // サーバーからの再取得を待たずに、操作結果で即座に表示を更新する
   const [current, setCurrent] = useState(status);
   const [message, setMessage] = useState<Message>(null);
-  const [pendingTaskId, setPendingTaskId] = useState<string | null>(null);
+  // 保存に失敗した行を短く揺らして知らせる
+  const [failedTaskId, setFailedTaskId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   // ルーレットに出す獲得ポイント。null の間は回っていない
   const [rouletteTarget, setRouletteTarget] = useState<number | null>(null);
@@ -67,20 +57,37 @@ export default function MorningPanel({ status }: { status: MorningStatus }) {
     });
   };
 
+  /**
+   * やることリストの消化を切り替える。
+   * 通信を待つと反応が 100ms を超えて重く感じるため、先に画面上のチェックを
+   * 反転させてから保存し、失敗したときだけ元に戻す（楽観更新）。
+   */
   const doToggle = (taskId: string, done: boolean) => {
-    setPendingTaskId(taskId);
+    const snapshot = current;
+    setCurrent((prev) => ({
+      ...prev,
+      tasks: prev.tasks.map((t) => (t.id === taskId ? { ...t, done } : t)),
+      done_count: prev.done_count + (done ? 1 : -1),
+    }));
+    if (done) hapticSuccess();
+
     startTransition(async () => {
       const formData = new FormData();
       formData.set("task_id", taskId);
       formData.set("done", String(done));
       const res = await toggleMorningTask(null, formData);
-      if (res.result) setCurrent(res.result.status);
+      if (res.result) {
+        setCurrent(res.result.status);
+      } else {
+        setCurrent(snapshot);
+        hapticCancel();
+        setFailedTaskId(taskId);
+        setTimeout(() => setFailedTaskId(null), 400);
+      }
       setMessage(res.message ? { ok: res.ok, text: res.message } : null);
-      setPendingTaskId(null);
     });
   };
 
-  const week = recentWeek(current.recent_dates);
   const checkedIn = current.checked_in_today;
   const total = current.tasks.length;
   const progress =
@@ -127,7 +134,7 @@ export default function MorningPanel({ status }: { status: MorningStatus }) {
                       : "#a1a1aa",
                 }}
               >
-                {isPending && !pendingTaskId && (
+                {isPending && !checkedIn && (
                   <span
                     aria-hidden="true"
                     className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
@@ -196,28 +203,11 @@ export default function MorningPanel({ status }: { status: MorningStatus }) {
             </div>
           )}
 
-          {/* 直近7日 */}
-          <div className="flex gap-1.5">
-            {week.map((d, i) => (
-              <div
-                key={d.date}
-                className="flex flex-1 flex-col items-center gap-1"
-              >
-                <div
-                  title={d.date}
-                  className="h-1.5 w-full rounded-full"
-                  style={{
-                    backgroundColor: d.done
-                      ? "var(--brand-orange)"
-                      : "color-mix(in srgb, currentColor 12%, transparent)",
-                  }}
-                />
-                <span className="font-mono text-[9px] text-zinc-400">
-                  {i === 6 ? "今日" : Number(d.date.slice(8, 10))}
-                </span>
-              </div>
-            ))}
-          </div>
+          {/* 一週間のスタンプカード */}
+          <StampCard
+            recentDates={current.recent_dates}
+            stampedToday={checkedIn}
+          />
 
           {message && (
             <p
@@ -281,10 +271,8 @@ export default function MorningPanel({ status }: { status: MorningStatus }) {
         ) : (
           <ul className="flex flex-col gap-2">
             {current.tasks.map((task) => {
-              const locked =
-                !checkedIn ||
-                pendingTaskId === task.id ||
-                task.complete_on_post;
+              // 投稿でクリアする項目は手動チェックさせない
+              const locked = !checkedIn || task.complete_on_post;
               return (
                 <li key={task.id}>
                   <button
@@ -292,7 +280,9 @@ export default function MorningPanel({ status }: { status: MorningStatus }) {
                     onClick={() => doToggle(task.id, !task.done)}
                     disabled={locked}
                     aria-pressed={task.done}
-                    className="group flex w-full items-center gap-4 rounded-xl border p-3.5 text-left transition-all duration-200 enabled:hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-70 enabled:active:scale-[0.99] sm:p-4"
+                    className={`group flex w-full items-center gap-4 rounded-xl border p-3.5 text-left transition-all duration-200 enabled:hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-70 enabled:active:scale-[0.98] sm:p-4 ${
+                      failedTaskId === task.id ? "shake-x" : ""
+                    }`}
                     style={{
                       borderColor: task.done
                         ? "var(--brand-green)"
@@ -302,10 +292,7 @@ export default function MorningPanel({ status }: { status: MorningStatus }) {
                         : undefined,
                     }}
                   >
-                    <BigCheck
-                      done={task.done}
-                      pending={pendingTaskId === task.id}
-                    />
+                    <BigCheck done={task.done} />
 
                     <span className="min-w-0 flex-1">
                       <span
