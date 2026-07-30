@@ -19,3 +19,4 @@ from app.models.morning import (
     MorningPost,
 )
 from app.models.todo import Todo
+from app.models.goal import Goal

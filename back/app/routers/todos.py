@@ -23,6 +23,8 @@ class TodoOut(BaseModel):
     title: str
     detail: str | None
     is_done: bool
+    # 0=低 / 1=中 / 2=高
+    priority: int
     done_at: datetime | None
     source: str
     created_at: datetime
@@ -33,11 +35,13 @@ class TodoOut(BaseModel):
 class TodoCreate(BaseModel):
     title: str = Field(min_length=1, max_length=service.TITLE_MAX)
     detail: str | None = Field(default=None, max_length=service.DETAIL_MAX)
+    priority: int | None = Field(default=None, ge=0, le=2)
 
 
 class TodoUpdate(BaseModel):
     title: str | None = Field(default=None, max_length=service.TITLE_MAX)
     detail: str | None = Field(default=None, max_length=service.DETAIL_MAX)
+    priority: int | None = Field(default=None, ge=0, le=2)
 
 
 class TodoToggle(BaseModel):
@@ -63,7 +67,9 @@ def create_todo(
 ):
     user = user_or_404(db, discord_id)
     try:
-        return service.create_todo(db, user, body.title, body.detail, source="app")
+        return service.create_todo(
+            db, user, body.title, body.detail, source="app", priority=body.priority
+        )
     except service.TodoError as exc:
         raise _bad_request(exc) from exc
 
@@ -79,7 +85,12 @@ def update_todo(
     user = user_or_404(db, discord_id)
     try:
         return service.update_todo(
-            db, user.id, todo_id, title=body.title, detail=body.detail
+            db,
+            user.id,
+            todo_id,
+            title=body.title,
+            detail=body.detail,
+            priority=body.priority,
         )
     except service.TodoError as exc:
         raise _bad_request(exc) from exc

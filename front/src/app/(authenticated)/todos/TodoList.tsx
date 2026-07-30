@@ -4,7 +4,87 @@ import { useEffect, useState, useTransition } from "react";
 import { createTodo, deleteTodo, toggleTodo, updateTodo } from "@/actions/todo";
 import BigCheck from "@/app/components/BigCheck";
 import { hapticCancel, hapticSuccess } from "@/lib/haptics";
-import type { Todo } from "@/types/todo";
+import {
+  PRIORITIES,
+  PRIORITY_NORMAL,
+  priorityOf,
+  type Todo,
+} from "@/types/todo";
+
+/** 高・中・低を選ぶセグメント */
+function PrioritySelect({
+  value,
+  onChange,
+  size = "md",
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  size?: "sm" | "md";
+}) {
+  return (
+    <fieldset
+      aria-label="優先度"
+      className="inline-flex overflow-hidden rounded-lg border border-zinc-300 dark:border-zinc-700"
+    >
+      {PRIORITIES.map((p) => {
+        const active = p.value === value;
+        return (
+          <button
+            key={p.value}
+            type="button"
+            onClick={() => onChange(p.value)}
+            aria-pressed={active}
+            className={`${
+              size === "sm" ? "px-2.5 py-1 text-[11px]" : "px-3 py-1.5 text-xs"
+            } font-medium transition-colors ${
+              active
+                ? "text-white"
+                : "text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+            }`}
+            style={{ backgroundColor: active ? p.color : undefined }}
+          >
+            {p.label}
+          </button>
+        );
+      })}
+    </fieldset>
+  );
+}
+
+/** 行に出す優先度のバッジ */
+function PriorityBadge({ priority }: { priority: number }) {
+  const p = priorityOf(priority);
+  return (
+    <span
+      className="rounded-full px-2 py-0.5 text-[10px] font-medium text-white"
+      style={{ backgroundColor: p.color }}
+      title={`優先度: ${p.label}`}
+    >
+      {p.label}
+    </span>
+  );
+}
+
+function TrashIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      <path d="M4 7h16" />
+      <path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7" />
+      <path d="M6 7l1 12.5A1.5 1.5 0 0 0 8.5 21h7a1.5 1.5 0 0 0 1.5-1.5L18 7" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+    </svg>
+  );
+}
 
 const inputClass =
   "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-[var(--brand-green)] dark:border-zinc-700 dark:bg-zinc-950";
@@ -35,10 +115,11 @@ function relativeDays(iso: string): string {
   return `${days}日前`;
 }
 
-/** 未完了を上、完了済みを下に並べる（サーバーと同じ順序をクライアントでも保つ） */
+/** 未完了→優先度の高い順→新しい順。サーバーと同じ並びをクライアントでも保つ */
 function sortTodos(items: Todo[]): Todo[] {
   return [...items].sort((a, b) => {
     if (a.is_done !== b.is_done) return a.is_done ? 1 : -1;
+    if (a.priority !== b.priority) return b.priority - a.priority;
     return b.created_at.localeCompare(a.created_at);
   });
 }
@@ -55,8 +136,10 @@ export default function TodoList({ todos }: { todos: Todo[] }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDetail, setEditDetail] = useState("");
+  const [editPriority, setEditPriority] = useState<number>(PRIORITY_NORMAL);
   const [newTitle, setNewTitle] = useState("");
   const [newDetail, setNewDetail] = useState("");
+  const [newPriority, setNewPriority] = useState<number>(PRIORITY_NORMAL);
   const [, startTransition] = useTransition();
 
   useEffect(() => {
@@ -101,12 +184,13 @@ export default function TodoList({ todos }: { todos: Todo[] }) {
     setEditingId(todo.id);
     setEditTitle(todo.title);
     setEditDetail(todo.detail ?? "");
+    setEditPriority(todo.priority);
   };
 
   const saveEdit = (todoId: string) => {
     setPendingId(todoId);
     startTransition(async () => {
-      const res = await updateTodo(todoId, editTitle, editDetail);
+      const res = await updateTodo(todoId, editTitle, editDetail, editPriority);
       if (res.todo) {
         replace(res.todo);
         setEditingId(null);
@@ -132,11 +216,12 @@ export default function TodoList({ todos }: { todos: Todo[] }) {
 
   const doCreate = () => {
     startTransition(async () => {
-      const res = await createTodo(newTitle, newDetail);
+      const res = await createTodo(newTitle, newDetail, newPriority);
       if (res.todo) {
         setItems((prev) => sortTodos([res.todo as Todo, ...prev]));
         setNewTitle("");
         setNewDetail("");
+        setNewPriority(PRIORITY_NORMAL);
       }
       setMessage({ ok: res.ok, text: res.message });
     });
@@ -172,7 +257,11 @@ export default function TodoList({ todos }: { todos: Todo[] }) {
             placeholder="詳細（任意）"
             className={inputClass}
           />
-          <div>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+              優先度
+              <PrioritySelect value={newPriority} onChange={setNewPriority} />
+            </span>
             <button
               type="button"
               onClick={doCreate}
@@ -231,8 +320,10 @@ export default function TodoList({ todos }: { todos: Todo[] }) {
                 editing={editingId === todo.id}
                 editTitle={editTitle}
                 editDetail={editDetail}
+                editPriority={editPriority}
                 onEditTitle={setEditTitle}
                 onEditDetail={setEditDetail}
+                onEditPriority={setEditPriority}
                 onToggle={() => doToggle(todo)}
                 onStartEdit={() => startEdit(todo)}
                 onCancelEdit={() => setEditingId(null)}
@@ -260,8 +351,10 @@ export default function TodoList({ todos }: { todos: Todo[] }) {
                 editing={editingId === todo.id}
                 editTitle={editTitle}
                 editDetail={editDetail}
+                editPriority={editPriority}
                 onEditTitle={setEditTitle}
                 onEditDetail={setEditDetail}
+                onEditPriority={setEditPriority}
                 onToggle={() => doToggle(todo)}
                 onStartEdit={() => startEdit(todo)}
                 onCancelEdit={() => setEditingId(null)}
@@ -283,8 +376,10 @@ type RowProps = {
   editing: boolean;
   editTitle: string;
   editDetail: string;
+  editPriority: number;
   onEditTitle: (v: string) => void;
   onEditDetail: (v: string) => void;
+  onEditPriority: (v: number) => void;
   onToggle: () => void;
   onStartEdit: () => void;
   onCancelEdit: () => void;
@@ -299,8 +394,10 @@ function TodoRow({
   editing,
   editTitle,
   editDetail,
+  editPriority,
   onEditTitle,
   onEditDetail,
+  onEditPriority,
   onToggle,
   onStartEdit,
   onCancelEdit,
@@ -351,6 +448,14 @@ function TodoRow({
               placeholder="詳細（任意・空にすると消えます）"
               className={inputClass}
             />
+            <span className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+              優先度
+              <PrioritySelect
+                value={editPriority}
+                onChange={onEditPriority}
+                size="sm"
+              />
+            </span>
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
@@ -384,14 +489,17 @@ function TodoRow({
               onClick={onStartEdit}
               className="min-w-0 flex-1 text-left"
             >
-              <span
-                className={`block text-[15px] font-medium transition-colors sm:text-base ${
-                  todo.is_done
-                    ? "text-zinc-400 line-through decoration-[1.5px]"
-                    : "text-zinc-800 dark:text-zinc-100"
-                }`}
-              >
-                {todo.title}
+              <span className="flex flex-wrap items-center gap-2">
+                {!todo.is_done && <PriorityBadge priority={todo.priority} />}
+                <span
+                  className={`text-[15px] font-medium transition-colors sm:text-base ${
+                    todo.is_done
+                      ? "text-zinc-400 line-through decoration-[1.5px]"
+                      : "text-zinc-800 dark:text-zinc-100"
+                  }`}
+                >
+                  {todo.title}
+                </span>
               </span>
               {todo.detail && (
                 <span
@@ -422,11 +530,23 @@ function TodoRow({
                 )}
               </span>
             </button>
-            {todo.source === "discord" && (
-              <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-                Discord
-              </span>
-            )}
+            <span className="flex shrink-0 flex-col items-end gap-1.5">
+              {todo.source === "discord" && (
+                <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                  Discord
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={onDelete}
+                disabled={pending}
+                aria-label={`「${todo.title}」を削除`}
+                title="削除"
+                className="rounded-lg p-2 text-zinc-300 transition-colors hover:bg-zinc-100 hover:text-[var(--brand-orange)] disabled:opacity-40 dark:text-zinc-600 dark:hover:bg-zinc-800"
+              >
+                <TrashIcon className="h-[18px] w-[18px]" />
+              </button>
+            </span>
           </>
         )}
       </div>

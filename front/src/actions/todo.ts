@@ -48,6 +48,7 @@ async function run(
 export async function createTodo(
   title: string,
   detail: string | null,
+  priority: number,
 ): Promise<TodoState> {
   if (!title.trim()) {
     return { ok: false, message: "タイトルを入力してください" };
@@ -56,7 +57,11 @@ export async function createTodo(
     (discordId) =>
       apiFetch(`/api/todos?discord_id=${discordId}`, {
         method: "POST",
-        body: JSON.stringify({ title, detail: detail?.trim() || null }),
+        body: JSON.stringify({
+          title,
+          detail: detail?.trim() || null,
+          priority,
+        }),
       }),
     "TODO を追加しました",
   );
@@ -67,6 +72,7 @@ export async function updateTodo(
   todoId: string,
   title: string,
   detail: string,
+  priority: number,
 ): Promise<TodoState> {
   if (!title.trim()) {
     return { ok: false, message: "タイトルを入力してください" };
@@ -75,7 +81,7 @@ export async function updateTodo(
     (discordId) =>
       apiFetch(`/api/todos/${todoId}?discord_id=${discordId}`, {
         method: "PATCH",
-        body: JSON.stringify({ title, detail }),
+        body: JSON.stringify({ title, detail, priority }),
       }),
     "保存しました",
   );

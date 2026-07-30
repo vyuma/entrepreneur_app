@@ -229,6 +229,26 @@ function ProfileIcon(props: IconProps) {
     </svg>
   );
 }
+function GoalIcon(props: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      {/* 的（ターゲット）*/}
+      <circle cx="12" cy="12" r="8.5" />
+      <circle cx="12" cy="12" r="4.5" />
+      <circle cx="12" cy="12" r="1" />
+    </svg>
+  );
+}
+
 function MenuIcon(props: IconProps) {
   return (
     <svg
@@ -274,6 +294,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "ダッシュボード", Icon: DashboardIcon },
   { href: "/morning", label: "朝活", Icon: MorningIcon },
   { href: "/todos", label: "TODO", Icon: TodoIcon },
+  { href: "/goals", label: "目標", Icon: GoalIcon },
   { href: "/events", label: "NueStar", Icon: EventsIcon },
   { href: "/competitions", label: "コンペ", Icon: CompetitionsIcon },
   { href: "/achievements", label: "成果", Icon: AchievementsIcon },

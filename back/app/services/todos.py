@@ -13,6 +13,13 @@ from app.models.user import User
 TITLE_MAX = 200
 DETAIL_MAX = 2000
 
+# 優先度。数値が大きいほど上に出す
+PRIORITY_LOW = 0
+PRIORITY_NORMAL = 1
+PRIORITY_HIGH = 2
+PRIORITIES = (PRIORITY_LOW, PRIORITY_NORMAL, PRIORITY_HIGH)
+PRIORITY_LABELS = {PRIORITY_LOW: "低", PRIORITY_NORMAL: "中", PRIORITY_HIGH: "高"}
+
 
 class TodoError(Exception):
     """入力が不正で受け付けられないときのエラー。"""
@@ -38,12 +45,25 @@ def _clean_detail(detail: str | None) -> str | None:
     return detail
 
 
+def _clean_priority(priority: int | None) -> int:
+    if priority is None:
+        return PRIORITY_NORMAL
+    if priority not in PRIORITIES:
+        raise TodoError("優先度は 0（低）・1（中）・2（高）のいずれかです")
+    return priority
+
+
 def list_todos(db: Session, user_id: str) -> list[Todo]:
-    """未完了を上、完了済みを下にして返す。"""
+    """未完了を上、その中では優先度の高い順に返す。完了済みは下にまとめる。"""
     return (
         db.query(Todo)
         .filter(Todo.user_id == user_id)
-        .order_by(Todo.is_done, Todo.sort_order, Todo.created_at.desc())
+        .order_by(
+            Todo.is_done,
+            Todo.priority.desc(),
+            Todo.sort_order,
+            Todo.created_at.desc(),
+        )
         .all()
     )
 
@@ -64,11 +84,13 @@ def create_todo(
     title: str,
     detail: str | None = None,
     source: str = "app",
+    priority: int | None = None,
 ) -> Todo:
     todo = Todo(
         user_id=user.id,
         title=_clean_title(title),
         detail=_clean_detail(detail),
+        priority=_clean_priority(priority),
         source=source,
         # 新しいものを上に出す
         sort_order=_next_sort_order(db, user.id),
@@ -96,8 +118,9 @@ def update_todo(
     *,
     title: str | None = None,
     detail: str | None = None,
+    priority: int | None = None,
 ) -> Todo:
-    """タイトル・詳細を更新する。None を渡した項目は変更しない。
+    """タイトル・詳細・優先度を更新する。None を渡した項目は変更しない。
 
     詳細を消したい場合は空文字を渡す。
     """
@@ -106,6 +129,8 @@ def update_todo(
         todo.title = _clean_title(title)
     if detail is not None:
         todo.detail = _clean_detail(detail)
+    if priority is not None:
+        todo.priority = _clean_priority(priority)
     db.commit()
     db.refresh(todo)
     return todo

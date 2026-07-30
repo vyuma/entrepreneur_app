@@ -1,7 +1,7 @@
 """個人 TODO の Discord スラッシュコマンド。
 
-- /todo <タイトル> : TODO を作成し、続けて詳細入力のUI（モーダル）を出す
-- /todos           : 自分の未完了 TODO を一覧表示
+- /todo <タイトル> [優先度] : TODO を作成し、続けて詳細入力のUI（モーダル）を出す
+- /todos                    : 自分の未完了 TODO を一覧表示
 
 タイトルはコマンドのテキスト引数で受け取り、詳細はモーダルから任意で入力する。
 チェックと編集はアプリ側（/todos ページ）でも行える。
@@ -22,18 +22,48 @@ from app.services import todos as service
 logger = logging.getLogger(__name__)
 
 BRAND_GREEN = 0x2EA84A
+BRAND_ORANGE = 0xE85A1C
 # 一覧に出す未完了 TODO の最大件数
 LIST_LIMIT = 15
+
+# 優先度ごとの見た目
+PRIORITY_MARKS = {
+    service.PRIORITY_HIGH: "🔴 高",
+    service.PRIORITY_NORMAL: "🟡 中",
+    service.PRIORITY_LOW: "⚪ 低",
+}
+
+
+def _priority_mark(priority: int) -> str:
+    return PRIORITY_MARKS.get(priority, PRIORITY_MARKS[service.PRIORITY_NORMAL])
 
 
 def _todo_embed(todo: Todo) -> discord.Embed:
     embed = discord.Embed(
         title=f"{'✅' if todo.is_done else '📝'} {todo.title}",
         description=todo.detail or "（詳細は未入力）",
-        color=BRAND_GREEN,
+        # 優先度が高いものは色でも目立たせる
+        color=BRAND_ORANGE if todo.priority == service.PRIORITY_HIGH else BRAND_GREEN,
     )
+    embed.add_field(name="優先度", value=_priority_mark(todo.priority), inline=True)
     embed.set_footer(text=f"アプリで編集・チェック: {settings.APP_URL}/todos")
     return embed
+
+
+# モーダルで受け取る優先度の文字と数値の対応
+PRIORITY_WORDS = {
+    service.PRIORITY_HIGH: "高",
+    service.PRIORITY_NORMAL: "中",
+    service.PRIORITY_LOW: "低",
+}
+_WORD_TO_PRIORITY = {v: k for k, v in PRIORITY_WORDS.items()}
+
+
+def _parse_priority(value: str | None) -> int:
+    """「高 / 中 / 低」を数値にする。読めなければ中扱い。"""
+    if not value:
+        return service.PRIORITY_NORMAL
+    return _WORD_TO_PRIORITY.get(value.strip(), service.PRIORITY_NORMAL)
 
 
 def _find_user(db, discord_id: str) -> User | None:
@@ -43,7 +73,13 @@ def _find_user(db, discord_id: str) -> User | None:
 class TodoDetailModal(discord.ui.Modal, title="TODO の詳細を入力"):
     """詳細（任意）を入力するモーダル。空のまま送信しても問題ない。"""
 
-    def __init__(self, todo_id: str, todo_title: str, current_detail: str | None):
+    def __init__(
+        self,
+        todo_id: str,
+        todo_title: str,
+        current_detail: str | None,
+        current_priority: int = service.PRIORITY_NORMAL,
+    ):
         super().__init__(timeout=600)
         self.todo_id = todo_id
         # 何のTODOを編集しているか分かるようにタイトルも触れるようにしておく
@@ -61,8 +97,16 @@ class TodoDetailModal(discord.ui.Modal, title="TODO の詳細を入力"):
             required=False,
             max_length=1000,
         )
+        # モーダルには選択メニューを置けないため、優先度は「高/中/低」の文字で受ける
+        self.priority_input = discord.ui.TextInput(
+            label="優先度（高 / 中 / 低）",
+            default=PRIORITY_WORDS.get(current_priority, "中"),
+            required=False,
+            max_length=2,
+        )
         self.add_item(self.title_input)
         self.add_item(self.detail_input)
+        self.add_item(self.priority_input)
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         db = SessionLocal()
@@ -81,6 +125,7 @@ class TodoDetailModal(discord.ui.Modal, title="TODO の詳細を入力"):
                 title=self.title_input.value,
                 # 空文字を渡すと詳細が消える（意図的に消せるようにする）
                 detail=self.detail_input.value,
+                priority=_parse_priority(self.priority_input.value),
             )
             await interaction.response.send_message(
                 content="TODO を更新しました。",
@@ -137,7 +182,7 @@ class TodoActionView(discord.ui.View):
                 return
             todo = service.get_todo(db, user.id, self.todo_id)
             await interaction.response.send_modal(
-                TodoDetailModal(todo.id, todo.title, todo.detail)
+                TodoDetailModal(todo.id, todo.title, todo.detail, todo.priority)
             )
         except service.TodoError as exc:
             await interaction.response.send_message(str(exc), ephemeral=True)
@@ -182,8 +227,23 @@ class TodoCog(commands.Cog):
         self.bot = bot
 
     @app_commands.command(name="todo", description="TODO を作成します")
-    @app_commands.describe(title="やること（詳細はこのあとUIで任意入力できます）")
-    async def todo(self, interaction: discord.Interaction, title: str) -> None:
+    @app_commands.describe(
+        title="やること（詳細はこのあとUIで任意入力できます）",
+        priority="優先度（省略時は中）",
+    )
+    @app_commands.choices(
+        priority=[
+            app_commands.Choice(name="高", value=service.PRIORITY_HIGH),
+            app_commands.Choice(name="中", value=service.PRIORITY_NORMAL),
+            app_commands.Choice(name="低", value=service.PRIORITY_LOW),
+        ]
+    )
+    async def todo(
+        self,
+        interaction: discord.Interaction,
+        title: str,
+        priority: int | None = None,
+    ) -> None:
         db = SessionLocal()
         try:
             user = _find_user(db, str(interaction.user.id))
@@ -194,7 +254,9 @@ class TodoCog(commands.Cog):
                 )
                 return
 
-            todo = service.create_todo(db, user, title, source="discord")
+            todo = service.create_todo(
+                db, user, title, source="discord", priority=priority
+            )
             # タイトルだけで作成は完了している。詳細はここから任意で足せる。
             await interaction.response.send_message(
                 content=(
@@ -232,7 +294,7 @@ class TodoCog(commands.Cog):
             else:
                 for todo in items[:LIST_LIMIT]:
                     embed.add_field(
-                        name=f"📝 {todo.title}",
+                        name=f"{_priority_mark(todo.priority)}｜{todo.title}",
                         value=todo.detail or "—",
                         inline=False,
                     )
