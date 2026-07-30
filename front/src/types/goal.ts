@@ -13,6 +13,9 @@ export type Goal = {
   created_at: string;
   /** 期限まであと何日か。期限なしは null、過ぎていれば負 */
   days_left: number | null;
+  /** 紐づく TODO の件数と、そのうち完了した数 */
+  todo_total: number;
+  todo_done: number;
 };
 
 /** 残り日数がこれ以下なら急かす表示にする */

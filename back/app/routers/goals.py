@@ -29,6 +29,9 @@ class GoalOut(BaseModel):
     created_at: datetime
     # 期限まであと何日か（期限なしは None、過ぎていれば負）
     days_left: int | None = None
+    # 紐づく TODO の件数と、そのうち完了した数
+    todo_total: int = 0
+    todo_done: int = 0
 
     model_config = {"from_attributes": True}
 
@@ -55,16 +58,20 @@ def _bad_request(exc: service.GoalError) -> HTTPException:
     return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
 
-def _out(goal) -> GoalOut:
+def _out(goal, progress: dict[str, tuple[int, int]] | None = None) -> GoalOut:
     item = GoalOut.model_validate(goal)
     item.days_left = service.days_left(goal)
+    done, total = (progress or {}).get(goal.id, (0, 0))
+    item.todo_done = done
+    item.todo_total = total
     return item
 
 
 @router.get("", response_model=list[GoalOut])
 def list_goals(discord_id: str, db: Session = Depends(get_db), _=Depends(verify_token)):
     user = user_or_404(db, discord_id)
-    return [_out(g) for g in service.list_goals(db, user.id)]
+    progress = service.todo_progress(db, user.id)
+    return [_out(g, progress) for g in service.list_goals(db, user.id)]
 
 
 @router.post("", response_model=GoalOut, status_code=status.HTTP_201_CREATED)
@@ -104,7 +111,8 @@ def update_goal(
                 detail=body.detail,
                 target_date=body.target_date,
                 clear_target_date=body.clear_target_date,
-            )
+            ),
+            service.todo_progress(db, user.id),
         )
     except service.GoalError as exc:
         raise _bad_request(exc) from exc
@@ -120,7 +128,10 @@ def set_status(
 ):
     user = user_or_404(db, discord_id)
     try:
-        return _out(service.set_status(db, user.id, goal_id, body.status))
+        return _out(
+            service.set_status(db, user.id, goal_id, body.status),
+            service.todo_progress(db, user.id),
+        )
     except service.GoalError as exc:
         raise _bad_request(exc) from exc
 

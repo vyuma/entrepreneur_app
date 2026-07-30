@@ -6,6 +6,7 @@ TODO と違い期限と達成状態を持つ。
 
 from datetime import date, datetime, timezone
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.goal import (
@@ -14,6 +15,7 @@ from app.models.goal import (
     GOAL_STATUSES,
     Goal,
 )
+from app.models.todo import Todo
 from app.models.user import User
 
 TITLE_MAX = 200
@@ -165,9 +167,30 @@ def set_status(db: Session, user_id: str, goal_id: str, status: str) -> Goal:
 
 
 def delete_goal(db: Session, user_id: str, goal_id: str) -> None:
+    """目標を削除する。紐づいていた TODO は消さず、紐づけだけ外す。"""
     goal = get_goal(db, user_id, goal_id)
+    db.query(Todo).filter(Todo.goal_id == goal.id).update(
+        {Todo.goal_id: None}, synchronize_session=False
+    )
     db.delete(goal)
     db.commit()
+
+
+def todo_progress(db: Session, user_id: str) -> dict[str, tuple[int, int]]:
+    """目標ID -> (完了数, 全体数)。紐づく TODO が無い目標は含まれない。"""
+    rows = (
+        db.query(Todo.goal_id, Todo.is_done, func.count(Todo.id))
+        .filter(Todo.user_id == user_id, Todo.goal_id.isnot(None))
+        .group_by(Todo.goal_id, Todo.is_done)
+        .all()
+    )
+    progress: dict[str, list[int]] = {}
+    for goal_id, is_done, count in rows:
+        entry = progress.setdefault(goal_id, [0, 0])
+        entry[1] += count
+        if is_done:
+            entry[0] += count
+    return {k: (v[0], v[1]) for k, v in progress.items()}
 
 
 def days_left(goal: Goal, today: date | None = None) -> int | None:

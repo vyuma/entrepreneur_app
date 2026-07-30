@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { auth } from "@/auth";
 import { apiFetch } from "@/lib/api";
+import type { Goal } from "@/types/goal";
 import type { Todo } from "@/types/todo";
 import TodoList from "./TodoList";
 
@@ -10,9 +12,14 @@ export default async function TodosPage() {
   const discordId = session!.user.discordId;
 
   let todos: Todo[] = [];
+  // 紐づけ先を選べるように目標も一緒に取る
+  let goals: Goal[] = [];
   let error: string | null = null;
   try {
-    todos = await apiFetch(`/api/todos?discord_id=${discordId}`);
+    [todos, goals] = await Promise.all([
+      apiFetch(`/api/todos?discord_id=${discordId}`),
+      apiFetch(`/api/goals?discord_id=${discordId}`),
+    ]);
   } catch {
     error = "TODO を取得できませんでした。";
   }
@@ -31,7 +38,11 @@ export default async function TodosPage() {
           <code className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-xs dark:bg-zinc-800">
             /todo やること
           </code>{" "}
-          と入力しても追加できます。詳細はあとから足せます。
+          と入力しても追加できます。目標に紐づけると{" "}
+          <Link href="/goals" className="underline">
+            目標ページ
+          </Link>{" "}
+          で進捗としてまとまります。
         </p>
       </div>
 
@@ -47,7 +58,7 @@ export default async function TodosPage() {
         </p>
       )}
 
-      <TodoList todos={todos} />
+      <TodoList todos={todos} goals={goals} />
     </div>
   );
 }

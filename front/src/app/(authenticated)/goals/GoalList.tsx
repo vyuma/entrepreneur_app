@@ -7,9 +7,11 @@ import {
   setGoalStatus,
   updateGoal,
 } from "@/actions/goal";
+import { createTodo, toggleTodo } from "@/actions/todo";
 import BigCheck from "@/app/components/BigCheck";
 import { hapticCancel, hapticSuccess } from "@/lib/haptics";
 import { type Goal, URGENT_DAYS } from "@/types/goal";
+import { priorityOf, type Todo } from "@/types/todo";
 
 const inputClass =
   "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-[var(--brand-green)] dark:border-zinc-700 dark:bg-zinc-950";
@@ -46,9 +48,17 @@ function sortGoals(items: Goal[]): Goal[] {
   });
 }
 
-export default function GoalList({ goals }: { goals: Goal[] }) {
+export default function GoalList({
+  goals,
+  todos,
+}: {
+  goals: Goal[];
+  todos: Todo[];
+}) {
   // 操作結果で即座に画面を更新する（サーバーの再取得を待たない）
   const [items, setItems] = useState(() => sortGoals(goals));
+  // 目標に紐づく TODO もこのページで直接チェック・追加できるようにする
+  const [todoItems, setTodoItems] = useState(todos);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
     null,
   );
@@ -66,6 +76,53 @@ export default function GoalList({ goals }: { goals: Goal[] }) {
   useEffect(() => {
     setItems(sortGoals(goals));
   }, [goals]);
+
+  useEffect(() => {
+    setTodoItems(todos);
+  }, [todos]);
+
+  /** 目標に紐づく TODO。未完了を先、その中は優先度の高い順 */
+  const todosOf = (goalId: string) =>
+    todoItems
+      .filter((t) => t.goal_id === goalId)
+      .sort((a, b) => {
+        if (a.is_done !== b.is_done) return a.is_done ? 1 : -1;
+        return b.priority - a.priority;
+      });
+
+  /** 紐づく TODO のチェックを切り替える（楽観更新） */
+  const toggleLinkedTodo = (todo: Todo) => {
+    const next = !todo.is_done;
+    setTodoItems((prev) =>
+      prev.map((t) => (t.id === todo.id ? { ...t, is_done: next } : t)),
+    );
+    if (next) hapticSuccess();
+    startTransition(async () => {
+      const res = await toggleTodo(todo.id, next);
+      if (res.todo) {
+        const saved = res.todo;
+        setTodoItems((prev) =>
+          prev.map((t) => (t.id === saved.id ? saved : t)),
+        );
+      } else {
+        setTodoItems((prev) => prev.map((t) => (t.id === todo.id ? todo : t)));
+        hapticCancel();
+        setMessage({ ok: false, text: res.message });
+      }
+    });
+  };
+
+  /** 目標に紐づく TODO を追加する */
+  const addLinkedTodo = (goalId: string, title: string) => {
+    startTransition(async () => {
+      const res = await createTodo(title, null, 1, goalId);
+      if (res.todo) {
+        const created = res.todo;
+        setTodoItems((prev) => [created, ...prev]);
+      }
+      setMessage({ ok: res.ok, text: res.message });
+    });
+  };
 
   const replace = (goal: Goal) =>
     setItems((prev) =>
@@ -180,6 +237,9 @@ export default function GoalList({ goals }: { goals: Goal[] }) {
     onSave: () => saveEdit(goal.id),
     onDelete: () => doDelete(goal),
     onDrop: () => doDrop(goal),
+    todos: todosOf(goal.id),
+    onToggleTodo: toggleLinkedTodo,
+    onAddTodo: (title: string) => addLinkedTodo(goal.id, title),
   });
 
   return (
@@ -323,6 +383,9 @@ type RowProps = {
   onSave: () => void;
   onDelete: () => void;
   onDrop: () => void;
+  todos: Todo[];
+  onToggleTodo: (todo: Todo) => void;
+  onAddTodo: (title: string) => void;
 };
 
 function GoalRow({
@@ -342,6 +405,9 @@ function GoalRow({
   onSave,
   onDelete,
   onDrop,
+  todos,
+  onToggleTodo,
+  onAddTodo,
 }: RowProps) {
   const achieved = goal.status === "achieved";
   const isDropped = goal.status === "dropped";
@@ -473,6 +539,11 @@ function GoalRow({
                 <span style={{ color: deadlineColor(goal) }}>
                   {deadlineText(goal)}
                 </span>
+                {todos.length > 0 && (
+                  <span>
+                    TODO {todos.filter((t) => t.is_done).length}/{todos.length}
+                  </span>
+                )}
                 {isDropped && <span>取り下げ中</span>}
               </span>
             </button>
@@ -511,6 +582,172 @@ function GoalRow({
           </>
         )}
       </div>
+
+      {/* 紐づく TODO。この目標の進捗そのもの */}
+      {!editing && (
+        <LinkedTodos
+          todos={todos}
+          achieved={achieved}
+          onToggle={onToggleTodo}
+          onAdd={onAddTodo}
+        />
+      )}
     </li>
+  );
+}
+
+/** 目標に紐づく TODO の一覧と、その場での追加フォーム */
+function LinkedTodos({
+  todos,
+  achieved,
+  onToggle,
+  onAdd,
+}: {
+  todos: Todo[];
+  achieved: boolean;
+  onToggle: (todo: Todo) => void;
+  onAdd: (title: string) => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [title, setTitle] = useState("");
+
+  const done = todos.filter((t) => t.is_done).length;
+  const percent =
+    todos.length === 0 ? 0 : Math.round((done / todos.length) * 100);
+
+  const submit = () => {
+    if (!title.trim()) return;
+    onAdd(title);
+    setTitle("");
+  };
+
+  return (
+    <div className="mt-3 border-t border-zinc-100 pt-3 dark:border-zinc-800/70">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+          この目標の TODO
+          {todos.length > 0 && (
+            <span className="ml-1.5 font-mono tabular-nums">
+              {done}/{todos.length}
+            </span>
+          )}
+        </p>
+        <button
+          type="button"
+          onClick={() => setAdding((v) => !v)}
+          className="text-xs transition-colors hover:opacity-80"
+          style={{ color: "var(--brand-green)" }}
+        >
+          {adding ? "閉じる" : "+ TODO を追加"}
+        </button>
+      </div>
+
+      {/* 進捗バー */}
+      {todos.length > 0 && (
+        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+          <div
+            className="h-full rounded-full transition-all duration-300"
+            style={{
+              width: `${percent}%`,
+              background:
+                "linear-gradient(90deg, var(--brand-yellow), var(--brand-green))",
+            }}
+          />
+        </div>
+      )}
+
+      {adding && (
+        <div className="mt-2 flex gap-2">
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") submit();
+            }}
+            maxLength={200}
+            placeholder="この目標のためにやること"
+            className={inputClass}
+          />
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!title.trim()}
+            className="shrink-0 rounded-full px-4 py-2 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+            style={{ backgroundColor: "var(--brand-green)" }}
+          >
+            追加
+          </button>
+        </div>
+      )}
+
+      {todos.length === 0 ? (
+        <p className="mt-2 text-xs text-zinc-400">
+          まだありません。TODO を紐づけると進捗が出ます。
+        </p>
+      ) : (
+        <ul className="mt-2 flex flex-col">
+          {todos.map((todo) => {
+            const p = priorityOf(todo.priority);
+            return (
+              <li key={todo.id}>
+                <button
+                  type="button"
+                  onClick={() => onToggle(todo)}
+                  disabled={achieved}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-1 py-1.5 text-left transition-colors enabled:hover:bg-zinc-50 disabled:cursor-not-allowed dark:enabled:hover:bg-zinc-800/40"
+                >
+                  {/* 小さめのチェック。押した瞬間に塗られる */}
+                  <span
+                    aria-hidden="true"
+                    className="grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 transition-all duration-200"
+                    style={{
+                      borderColor: todo.is_done
+                        ? "var(--brand-green)"
+                        : "color-mix(in srgb, currentColor 20%, transparent)",
+                      backgroundColor: todo.is_done
+                        ? "var(--brand-green)"
+                        : "transparent",
+                    }}
+                  >
+                    {todo.is_done && (
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#fff"
+                        strokeWidth="3.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="h-3 w-3"
+                      >
+                        <path d="M5 12.5l4.5 4.5L19 7.5" />
+                      </svg>
+                    )}
+                  </span>
+                  <span
+                    className={`min-w-0 flex-1 truncate text-sm ${
+                      todo.is_done
+                        ? "text-zinc-400 line-through"
+                        : "text-zinc-700 dark:text-zinc-300"
+                    }`}
+                  >
+                    {todo.title}
+                  </span>
+                  {!todo.is_done && (
+                    <span
+                      className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium text-white"
+                      style={{ backgroundColor: p.color }}
+                    >
+                      {p.label}
+                    </span>
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 }

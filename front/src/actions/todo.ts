@@ -49,6 +49,7 @@ export async function createTodo(
   title: string,
   detail: string | null,
   priority: number,
+  goalId: string | null,
 ): Promise<TodoState> {
   if (!title.trim()) {
     return { ok: false, message: "タイトルを入力してください" };
@@ -67,12 +68,14 @@ export async function createTodo(
   );
 }
 
-/** タイトル・詳細を更新する。詳細を空文字にすると消える */
+/** タイトル・詳細・優先度・紐づけ先を更新する。空文字にすると消える */
 export async function updateTodo(
   todoId: string,
   title: string,
   detail: string,
   priority: number,
+  /** 空文字を渡すと紐づけが外れる */
+  goalId: string,
 ): Promise<TodoState> {
   if (!title.trim()) {
     return { ok: false, message: "タイトルを入力してください" };
@@ -81,7 +84,7 @@ export async function updateTodo(
     (discordId) =>
       apiFetch(`/api/todos/${todoId}?discord_id=${discordId}`, {
         method: "PATCH",
-        body: JSON.stringify({ title, detail, priority }),
+        body: JSON.stringify({ title, detail, priority, goal_id: goalId }),
       }),
     "保存しました",
   );

@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { apiFetch } from "@/lib/api";
 import type { Goal } from "@/types/goal";
+import type { Todo } from "@/types/todo";
 import GoalList from "./GoalList";
 
 export const metadata = { title: "目標 | NueStar" };
@@ -10,9 +11,14 @@ export default async function GoalsPage() {
   const discordId = session!.user.discordId;
 
   let goals: Goal[] = [];
+  // 目標ごとに紐づく TODO を出すため、TODO も一緒に取る
+  let todos: Todo[] = [];
   let error: string | null = null;
   try {
-    goals = await apiFetch(`/api/goals?discord_id=${discordId}`);
+    [goals, todos] = await Promise.all([
+      apiFetch(`/api/goals?discord_id=${discordId}`),
+      apiFetch(`/api/todos?discord_id=${discordId}`),
+    ]);
   } catch {
     error = "目標を取得できませんでした。";
   }
@@ -31,7 +37,8 @@ export default async function GoalsPage() {
           <code className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-xs dark:bg-zinc-800">
             /goal 目標
           </code>{" "}
-          と入力しても立てられます。詳細と期限はあとから足せます。
+          と入力しても立てられます。目標ごとに TODO
+          を紐づけて進捗をまとめて管理できます。
         </p>
       </div>
 
@@ -47,7 +54,7 @@ export default async function GoalsPage() {
         </p>
       )}
 
-      <GoalList goals={goals} />
+      <GoalList goals={goals} todos={todos} />
     </div>
   );
 }

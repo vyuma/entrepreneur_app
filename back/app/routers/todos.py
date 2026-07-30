@@ -25,6 +25,8 @@ class TodoOut(BaseModel):
     is_done: bool
     # 0=低 / 1=中 / 2=高
     priority: int
+    # 紐づく目標。未設定なら単独の TODO
+    goal_id: str | None
     done_at: datetime | None
     source: str
     created_at: datetime
@@ -36,12 +38,15 @@ class TodoCreate(BaseModel):
     title: str = Field(min_length=1, max_length=service.TITLE_MAX)
     detail: str | None = Field(default=None, max_length=service.DETAIL_MAX)
     priority: int | None = Field(default=None, ge=0, le=2)
+    goal_id: str | None = None
 
 
 class TodoUpdate(BaseModel):
     title: str | None = Field(default=None, max_length=service.TITLE_MAX)
     detail: str | None = Field(default=None, max_length=service.DETAIL_MAX)
     priority: int | None = Field(default=None, ge=0, le=2)
+    # 空文字を渡すと紐づけが外れる。None は「変更しない」
+    goal_id: str | None = None
 
 
 class TodoToggle(BaseModel):
@@ -53,9 +58,15 @@ def _bad_request(exc: service.TodoError) -> HTTPException:
 
 
 @router.get("", response_model=list[TodoOut])
-def list_todos(discord_id: str, db: Session = Depends(get_db), _=Depends(verify_token)):
+def list_todos(
+    discord_id: str,
+    goal_id: str | None = None,
+    db: Session = Depends(get_db),
+    _=Depends(verify_token),
+):
+    """自分の TODO 一覧。goal_id を渡すとその目標に紐づくものだけ返す。"""
     user = user_or_404(db, discord_id)
-    return service.list_todos(db, user.id)
+    return service.list_todos(db, user.id, goal_id)
 
 
 @router.post("", response_model=TodoOut, status_code=status.HTTP_201_CREATED)
@@ -68,7 +79,13 @@ def create_todo(
     user = user_or_404(db, discord_id)
     try:
         return service.create_todo(
-            db, user, body.title, body.detail, source="app", priority=body.priority
+            db,
+            user,
+            body.title,
+            body.detail,
+            source="app",
+            priority=body.priority,
+            goal_id=body.goal_id,
         )
     except service.TodoError as exc:
         raise _bad_request(exc) from exc
@@ -91,6 +108,7 @@ def update_todo(
             title=body.title,
             detail=body.detail,
             priority=body.priority,
+            goal_id=body.goal_id,
         )
     except service.TodoError as exc:
         raise _bad_request(exc) from exc

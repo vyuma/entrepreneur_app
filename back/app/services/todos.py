@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
+from app.models.goal import Goal
 from app.models.todo import Todo
 from app.models.user import User
 
@@ -53,11 +54,34 @@ def _clean_priority(priority: int | None) -> int:
     return priority
 
 
-def list_todos(db: Session, user_id: str) -> list[Todo]:
-    """未完了を上、その中では優先度の高い順に返す。完了済みは下にまとめる。"""
+def _check_goal(db: Session, user_id: str, goal_id: str | None) -> str | None:
+    """紐づけ先の目標が本人のものか確かめる。空文字は「紐づけを外す」扱い。"""
+    if goal_id is None:
+        return None
+    if goal_id == "":
+        return None
+    exists = (
+        db.query(Goal.id)
+        .filter(Goal.id == goal_id, Goal.user_id == user_id)
+        .first()
+    )
+    if exists is None:
+        raise TodoError("紐づけ先の目標が見つかりません")
+    return goal_id
+
+
+def list_todos(
+    db: Session, user_id: str, goal_id: str | None = None
+) -> list[Todo]:
+    """未完了を上、その中では優先度の高い順に返す。完了済みは下にまとめる。
+
+    goal_id を渡すとその目標に紐づく TODO だけを返す。
+    """
+    query = db.query(Todo).filter(Todo.user_id == user_id)
+    if goal_id is not None:
+        query = query.filter(Todo.goal_id == goal_id)
     return (
-        db.query(Todo)
-        .filter(Todo.user_id == user_id)
+        query
         .order_by(
             Todo.is_done,
             Todo.priority.desc(),
@@ -85,12 +109,14 @@ def create_todo(
     detail: str | None = None,
     source: str = "app",
     priority: int | None = None,
+    goal_id: str | None = None,
 ) -> Todo:
     todo = Todo(
         user_id=user.id,
         title=_clean_title(title),
         detail=_clean_detail(detail),
         priority=_clean_priority(priority),
+        goal_id=_check_goal(db, user.id, goal_id),
         source=source,
         # 新しいものを上に出す
         sort_order=_next_sort_order(db, user.id),
@@ -119,10 +145,11 @@ def update_todo(
     title: str | None = None,
     detail: str | None = None,
     priority: int | None = None,
+    goal_id: str | None = None,
 ) -> Todo:
-    """タイトル・詳細・優先度を更新する。None を渡した項目は変更しない。
+    """タイトル・詳細・優先度・紐づけ先を更新する。None の項目は変更しない。
 
-    詳細を消したい場合は空文字を渡す。
+    詳細と紐づけ先を消したい場合は空文字を渡す。
     """
     todo = get_todo(db, user_id, todo_id)
     if title is not None:
@@ -131,6 +158,8 @@ def update_todo(
         todo.detail = _clean_detail(detail)
     if priority is not None:
         todo.priority = _clean_priority(priority)
+    if goal_id is not None:
+        todo.goal_id = _check_goal(db, user_id, goal_id)
     db.commit()
     db.refresh(todo)
     return todo

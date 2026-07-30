@@ -1,7 +1,9 @@
 """個人 TODO の Discord スラッシュコマンド。
 
-- /todo <タイトル> [優先度] : TODO を作成し、続けて詳細入力のUI（モーダル）を出す
-- /todos                    : 自分の未完了 TODO を一覧表示
+- /todo <タイトル> [優先度] [目標] : TODO を作成し、続けて詳細入力のUI（モーダル）を出す
+- /todos                           : 自分の未完了 TODO を一覧表示
+
+目標を指定すると、その目標に紐づく TODO として進捗に数えられる。
 
 タイトルはコマンドのテキスト引数で受け取り、詳細はモーダルから任意で入力する。
 チェックと編集はアプリ側（/todos ページ）でも行える。
@@ -15,6 +17,7 @@ from discord.ext import commands
 
 from app.core.config import settings
 from app.core.database import SessionLocal
+from app.models.goal import GOAL_ACTIVE, Goal
 from app.models.todo import Todo
 from app.models.user import User
 from app.services import todos as service
@@ -38,7 +41,14 @@ def _priority_mark(priority: int) -> str:
     return PRIORITY_MARKS.get(priority, PRIORITY_MARKS[service.PRIORITY_NORMAL])
 
 
-def _todo_embed(todo: Todo) -> discord.Embed:
+def _goal_title(db, goal_id: str | None) -> str | None:
+    if not goal_id:
+        return None
+    row = db.query(Goal.title).filter(Goal.id == goal_id).first()
+    return row[0] if row else None
+
+
+def _todo_embed(todo: Todo, goal_title: str | None = None) -> discord.Embed:
     embed = discord.Embed(
         title=f"{'✅' if todo.is_done else '📝'} {todo.title}",
         description=todo.detail or "（詳細は未入力）",
@@ -46,6 +56,8 @@ def _todo_embed(todo: Todo) -> discord.Embed:
         color=BRAND_ORANGE if todo.priority == service.PRIORITY_HIGH else BRAND_GREEN,
     )
     embed.add_field(name="優先度", value=_priority_mark(todo.priority), inline=True)
+    if goal_title:
+        embed.add_field(name="目標", value=f"🎯 {goal_title}", inline=True)
     embed.set_footer(text=f"アプリで編集・チェック: {settings.APP_URL}/todos")
     return embed
 
@@ -129,7 +141,7 @@ class TodoDetailModal(discord.ui.Modal, title="TODO の詳細を入力"):
             )
             await interaction.response.send_message(
                 content="TODO を更新しました。",
-                embed=_todo_embed(todo),
+                embed=_todo_embed(todo, _goal_title(db, todo.goal_id)),
                 view=TodoActionView(todo.id),
                 ephemeral=True,
             )
@@ -201,7 +213,7 @@ class TodoActionView(discord.ui.View):
             todo = service.set_done(db, user.id, self.todo_id, True)
             await interaction.response.send_message(
                 content="完了にしました 🎉",
-                embed=_todo_embed(todo),
+                embed=_todo_embed(todo, _goal_title(db, todo.goal_id)),
                 ephemeral=True,
             )
         except service.TodoError as exc:
@@ -230,6 +242,7 @@ class TodoCog(commands.Cog):
     @app_commands.describe(
         title="やること（詳細はこのあとUIで任意入力できます）",
         priority="優先度（省略時は中）",
+        goal="紐づける目標（入力すると候補が出ます）",
     )
     @app_commands.choices(
         priority=[
@@ -243,6 +256,7 @@ class TodoCog(commands.Cog):
         interaction: discord.Interaction,
         title: str,
         priority: int | None = None,
+        goal: str | None = None,
     ) -> None:
         db = SessionLocal()
         try:
@@ -255,14 +269,19 @@ class TodoCog(commands.Cog):
                 return
 
             todo = service.create_todo(
-                db, user, title, source="discord", priority=priority
+                db,
+                user,
+                title,
+                source="discord",
+                priority=priority,
+                goal_id=goal,
             )
             # タイトルだけで作成は完了している。詳細はここから任意で足せる。
             await interaction.response.send_message(
                 content=(
                     "TODO を作成しました。詳細を足したい場合は「詳細を入力」を押してください。"
                 ),
-                embed=_todo_embed(todo),
+                embed=_todo_embed(todo, _goal_title(db, todo.goal_id)),
                 view=TodoActionView(todo.id),
                 ephemeral=True,
             )
@@ -273,6 +292,31 @@ class TodoCog(commands.Cog):
             await interaction.response.send_message(
                 "作成に失敗しました。", ephemeral=True
             )
+        finally:
+            db.close()
+
+    @todo.autocomplete("goal")
+    async def goal_autocomplete(
+        self, interaction: discord.Interaction, current: str
+    ) -> list[app_commands.Choice[str]]:
+        """進行中の目標を候補に出す。表示はタイトル、実値は目標ID。"""
+        db = SessionLocal()
+        try:
+            user = _find_user(db, str(interaction.user.id))
+            if user is None:
+                return []
+            query = db.query(Goal).filter(
+                Goal.user_id == user.id, Goal.status == GOAL_ACTIVE
+            )
+            if current:
+                query = query.filter(Goal.title.ilike(f"%{current}%"))
+            goals = query.order_by(Goal.created_at.desc()).limit(25).all()
+            return [
+                app_commands.Choice(name=g.title[:100], value=g.id) for g in goals
+            ]
+        except Exception:
+            logger.exception("Failed to autocomplete goals")
+            return []
         finally:
             db.close()
 
@@ -293,9 +337,14 @@ class TodoCog(commands.Cog):
                 embed.description = "未完了の TODO はありません 🎉"
             else:
                 for todo in items[:LIST_LIMIT]:
+                    goal_title = _goal_title(db, todo.goal_id)
+                    lines = []
+                    if goal_title:
+                        lines.append(f"🎯 {goal_title}")
+                    lines.append(todo.detail or "—")
                     embed.add_field(
                         name=f"{_priority_mark(todo.priority)}｜{todo.title}",
-                        value=todo.detail or "—",
+                        value="\n".join(lines),
                         inline=False,
                     )
                 if len(items) > LIST_LIMIT:

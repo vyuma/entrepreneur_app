@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { createTodo, deleteTodo, toggleTodo, updateTodo } from "@/actions/todo";
 import BigCheck from "@/app/components/BigCheck";
 import { hapticCancel, hapticSuccess } from "@/lib/haptics";
+import type { Goal } from "@/types/goal";
 import {
   PRIORITIES,
   PRIORITY_NORMAL,
@@ -62,6 +63,34 @@ function PriorityBadge({ priority }: { priority: number }) {
     >
       {p.label}
     </span>
+  );
+}
+
+/** 紐づけ先の目標を選ぶ。進行中の目標だけを候補に出す */
+function GoalSelect({
+  goals,
+  value,
+  onChange,
+}: {
+  goals: Goal[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const options = goals.filter((g) => g.status === "active" || g.id === value);
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      aria-label="紐づける目標"
+      className="rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[var(--brand-green)] dark:border-zinc-700 dark:bg-zinc-950"
+    >
+      <option value="">目標に紐づけない</option>
+      {options.map((g) => (
+        <option key={g.id} value={g.id}>
+          {g.title}
+        </option>
+      ))}
+    </select>
   );
 }
 
@@ -124,7 +153,16 @@ function sortTodos(items: Todo[]): Todo[] {
   });
 }
 
-export default function TodoList({ todos }: { todos: Todo[] }) {
+export default function TodoList({
+  todos,
+  goals,
+}: {
+  todos: Todo[];
+  goals: Goal[];
+}) {
+  const goalTitle = (id: string | null) =>
+    id ? (goals.find((g) => g.id === id)?.title ?? null) : null;
+
   // 操作結果で即座に画面を更新する（サーバーの再取得を待たない）
   const [items, setItems] = useState(() => sortTodos(todos));
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
@@ -140,6 +178,8 @@ export default function TodoList({ todos }: { todos: Todo[] }) {
   const [newTitle, setNewTitle] = useState("");
   const [newDetail, setNewDetail] = useState("");
   const [newPriority, setNewPriority] = useState<number>(PRIORITY_NORMAL);
+  const [editGoalId, setEditGoalId] = useState("");
+  const [newGoalId, setNewGoalId] = useState("");
   const [, startTransition] = useTransition();
 
   useEffect(() => {
@@ -185,12 +225,19 @@ export default function TodoList({ todos }: { todos: Todo[] }) {
     setEditTitle(todo.title);
     setEditDetail(todo.detail ?? "");
     setEditPriority(todo.priority);
+    setEditGoalId(todo.goal_id ?? "");
   };
 
   const saveEdit = (todoId: string) => {
     setPendingId(todoId);
     startTransition(async () => {
-      const res = await updateTodo(todoId, editTitle, editDetail, editPriority);
+      const res = await updateTodo(
+        todoId,
+        editTitle,
+        editDetail,
+        editPriority,
+        editGoalId,
+      );
       if (res.todo) {
         replace(res.todo);
         setEditingId(null);
@@ -216,12 +263,13 @@ export default function TodoList({ todos }: { todos: Todo[] }) {
 
   const doCreate = () => {
     startTransition(async () => {
-      const res = await createTodo(newTitle, newDetail, newPriority);
+      const res = await createTodo(newTitle, newDetail, newPriority, newGoalId);
       if (res.todo) {
         setItems((prev) => sortTodos([res.todo as Todo, ...prev]));
         setNewTitle("");
         setNewDetail("");
         setNewPriority(PRIORITY_NORMAL);
+        setNewGoalId("");
       }
       setMessage({ ok: res.ok, text: res.message });
     });
@@ -262,6 +310,11 @@ export default function TodoList({ todos }: { todos: Todo[] }) {
               優先度
               <PrioritySelect value={newPriority} onChange={setNewPriority} />
             </span>
+            <GoalSelect
+              goals={goals}
+              value={newGoalId}
+              onChange={setNewGoalId}
+            />
             <button
               type="button"
               onClick={doCreate}
@@ -321,9 +374,13 @@ export default function TodoList({ todos }: { todos: Todo[] }) {
                 editTitle={editTitle}
                 editDetail={editDetail}
                 editPriority={editPriority}
+                editGoalId={editGoalId}
+                goals={goals}
+                goalName={goalTitle(todo.goal_id)}
                 onEditTitle={setEditTitle}
                 onEditDetail={setEditDetail}
                 onEditPriority={setEditPriority}
+                onEditGoalId={setEditGoalId}
                 onToggle={() => doToggle(todo)}
                 onStartEdit={() => startEdit(todo)}
                 onCancelEdit={() => setEditingId(null)}
@@ -352,9 +409,13 @@ export default function TodoList({ todos }: { todos: Todo[] }) {
                 editTitle={editTitle}
                 editDetail={editDetail}
                 editPriority={editPriority}
+                editGoalId={editGoalId}
+                goals={goals}
+                goalName={goalTitle(todo.goal_id)}
                 onEditTitle={setEditTitle}
                 onEditDetail={setEditDetail}
                 onEditPriority={setEditPriority}
+                onEditGoalId={setEditGoalId}
                 onToggle={() => doToggle(todo)}
                 onStartEdit={() => startEdit(todo)}
                 onCancelEdit={() => setEditingId(null)}
@@ -377,9 +438,13 @@ type RowProps = {
   editTitle: string;
   editDetail: string;
   editPriority: number;
+  editGoalId: string;
+  goals: Goal[];
+  goalName: string | null;
   onEditTitle: (v: string) => void;
   onEditDetail: (v: string) => void;
   onEditPriority: (v: number) => void;
+  onEditGoalId: (v: string) => void;
   onToggle: () => void;
   onStartEdit: () => void;
   onCancelEdit: () => void;
@@ -395,9 +460,13 @@ function TodoRow({
   editTitle,
   editDetail,
   editPriority,
+  editGoalId,
+  goals,
+  goalName,
   onEditTitle,
   onEditDetail,
   onEditPriority,
+  onEditGoalId,
   onToggle,
   onStartEdit,
   onCancelEdit,
@@ -448,12 +517,17 @@ function TodoRow({
               placeholder="詳細（任意・空にすると消えます）"
               className={inputClass}
             />
-            <span className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+            <span className="flex flex-wrap items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
               優先度
               <PrioritySelect
                 value={editPriority}
                 onChange={onEditPriority}
                 size="sm"
+              />
+              <GoalSelect
+                goals={goals}
+                value={editGoalId}
+                onChange={onEditGoalId}
               />
             </span>
             <div className="flex flex-wrap items-center gap-2">
@@ -518,6 +592,18 @@ function TodoRow({
                 </span>
               )}
               {/* 作成日時と、完了していれば完了日時 */}
+              {goalName && (
+                <span
+                  className="mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px]"
+                  style={{
+                    backgroundColor:
+                      "color-mix(in srgb, var(--brand-blue) 12%, transparent)",
+                    color: "var(--brand-blue)",
+                  }}
+                >
+                  🎯 {goalName}
+                </span>
+              )}
               <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[10px] text-zinc-400">
                 <span title={`作成: ${formatStamp(todo.created_at)}`}>
                   作成 {formatStamp(todo.created_at)}（

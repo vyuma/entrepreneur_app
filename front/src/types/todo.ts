@@ -5,6 +5,8 @@ export type Todo = {
   is_done: boolean;
   /** 0=低 / 1=中 / 2=高 */
   priority: number;
+  /** 紐づく目標。未設定なら単独の TODO */
+  goal_id: string | null;
   done_at: string | null;
   /** "discord" / "app"。どこから作られたか */
   source: string;
