@@ -46,6 +46,8 @@ export type BookState = {
   ok: boolean;
   message: string;
   book?: Book;
+  /** 今回はじめて自分の本棚に入ったか。false は登録済みの本を登録し直した場合 */
+  newlyRegistered?: boolean;
 };
 
 async function run(
@@ -97,9 +99,10 @@ export async function registerBook(
     return {
       ok: true,
       book: result.book,
+      newlyRegistered: result.newly_registered,
       message: result.newly_registered
         ? `「${result.book.title}」を本棚に追加しました`
-        : "この本はすでに登録済みです",
+        : "この本はすでに本棚にあります。感想を書きましょう",
     };
   } catch (err) {
     return { ok: false, message: detailOf(err) };

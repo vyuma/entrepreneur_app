@@ -13,6 +13,8 @@ from typing import Any
 import httpx
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
+
 from app.models.book import Book, BookRegistration, BookReview
 from app.models.user import User
 
@@ -131,8 +133,14 @@ def _from_openbd(isbn: str) -> dict[str, Any] | None:
 
 
 def _from_google_books(isbn: str) -> dict[str, Any] | None:
+    params: dict[str, str] = {"q": f"isbn:{isbn}"}
+    # キーがあれば付ける。無くても動くが、共有IPだと 429 を返されやすい
+    if settings.GOOGLE_BOOKS_API_KEY:
+        params["key"] = settings.GOOGLE_BOOKS_API_KEY
+        params["country"] = "JP"
+
     with httpx.Client(timeout=TIMEOUT_SECONDS) as client:
-        res = client.get(GOOGLE_BOOKS_URL, params={"q": f"isbn:{isbn}"})
+        res = client.get(GOOGLE_BOOKS_URL, params=params)
         res.raise_for_status()
         payload = res.json()
 
@@ -164,11 +172,20 @@ def _from_google_books(isbn: str) -> dict[str, Any] | None:
     }
 
 
-def lookup(isbn: str) -> dict[str, Any]:
-    """ISBN から書誌情報を取得する。見つからなければ BookError。"""
+def is_fallback_cover(url: str | None) -> bool:
+    """書影が「保険で組み立てたURL」かどうか。実物が取れていれば False。"""
+    return bool(url) and url.startswith("https://ndlsearch.ndl.go.jp/thumbnail/")
+
+
+def lookup(isbn: str, force: bool = False) -> dict[str, Any]:
+    """ISBN から書誌情報を取得する。見つからなければ BookError。
+
+    force=True でキャッシュを無視して取り直す（書影が未取得の本を
+    登録し直したときなど、新しく書影が付いている可能性がある場合に使う）。
+    """
     isbn = normalize_isbn(isbn)
 
-    cached = _cached(isbn)
+    cached = None if force else _cached(isbn)
     if cached is not None:
         return cached
 
@@ -201,15 +218,59 @@ def lookup(isbn: str) -> dict[str, Any]:
 # --- 本棚 ---
 
 
+def refresh_metadata(db: Session, book: Book) -> Book:
+    """既にある本の書影と、空いている項目を取り直す。
+
+    最初に登録した時点では書影が無く、あとから出版社が登録することがある。
+    そのため登録し直されたタイミングで引き直し、実物の書影が取れていれば
+    保険のURLから差し替える。タイトルは手入力されている場合があるので触らない。
+    """
+    # 実物の書影がまだ無いときだけキャッシュを無視して取り直す
+    need_cover = not book.cover_url or is_fallback_cover(book.cover_url)
+
+    try:
+        data = lookup(book.isbn13, force=need_cover)
+    except BookError:
+        return book
+    except Exception:
+        logger.warning("書誌情報の引き直しに失敗しました isbn=%s", book.isbn13, exc_info=True)
+        return book
+
+    changed = False
+    cover = data.get("cover_url")
+    # 保険のURLしか無い状態から実物が取れたときだけ差し替える
+    if cover and need_cover and not is_fallback_cover(cover):
+        book.cover_url = cover
+        changed = True
+    elif cover and not book.cover_url:
+        book.cover_url = cover
+        changed = True
+
+    # 空いている項目だけ埋める（既存の値は上書きしない）
+    for field in ("authors", "publisher", "published_date", "description"):
+        value = data.get(field)
+        if value and not getattr(book, field):
+            setattr(book, field, value)
+            changed = True
+
+    if changed:
+        db.commit()
+        db.refresh(book)
+    return book
+
+
 def get_or_create_book(
     db: Session, user: User, isbn: str, fallback_title: str | None = None
 ) -> Book:
-    """ISBN の本を取得する。無ければ書誌情報を引いて作る。"""
+    """ISBN の本を取得する。無ければ書誌情報を引いて作る。
+
+    既にある本なら、書影が未取得のときに引き直してから返す。
+    """
     isbn13 = normalize_isbn(isbn)
 
     book = db.query(Book).filter(Book.isbn13 == isbn13).first()
     if book is not None:
-        return book
+        return refresh_metadata(db, book)
 
     try:
         data = lookup(isbn13)

@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     ADMIN_API_TOKEN: Optional[str] = None
     # master 権限を持つ唯一のユーザーの Discord ID。DBからは変更できない
     MASTER_DISCORD_ID: Optional[str] = None
+    # Google Books API のキー（任意）。未設定でも動くが、設定すると
+    # 共有IPからのレート制限（429）を受けにくくなり書影が出やすくなる
+    GOOGLE_BOOKS_API_KEY: Optional[str] = None
     # Discord から開くアプリのURL（TODO の「アプリで開く」や times の案内文で使う）
     APP_URL: str = "https://entrepreneur-app.vercel.app"
 

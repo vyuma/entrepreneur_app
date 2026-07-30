@@ -157,7 +157,13 @@ export default function BookShelf({ books }: { books: Book[] }) {
     });
   };
 
+  /**
+   * 本棚に登録する。
+   * すでに棚にある本を登録し直した場合は、そのまま感想を書けるように
+   * 詳細（感想）を開く。同じ本にみんなで感想を足していく流れにするため。
+   */
   const doRegister = () => {
+    const alreadyOnShelf = preview?.already_on_shelf ?? false;
     startTransition(async () => {
       const res = await registerBook(isbn, comment, manualTitle);
       if (res.book) {
@@ -166,6 +172,9 @@ export default function BookShelf({ books }: { books: Book[] }) {
         setIsbn("");
         setComment("");
         setManualTitle("");
+        if (alreadyOnShelf || res.newlyRegistered === false) {
+          setOpenBookId(res.book.id);
+        }
       }
       setMessage({ ok: res.ok, text: res.message });
     });
@@ -201,7 +210,10 @@ export default function BookShelf({ books }: { books: Book[] }) {
           登録した本は団体全体の本棚に並びます。
         </p>
 
-        <IsbnScanner onDetected={doLookup} paused={isPending || !!preview} />
+        <IsbnScanner
+          onDetected={doLookup}
+          paused={isPending || !!preview || !!openBookId}
+        />
 
         <div className="mt-4 flex flex-wrap gap-2">
           <input
@@ -274,7 +286,10 @@ export default function BookShelf({ books }: { books: Book[] }) {
                 <p className="mt-0.5 font-mono text-[10px] text-zinc-400">
                   ISBN {preview.isbn13}
                   {preview.source && ` · ${preview.source}`}
-                  {preview.already_on_shelf && " · すでに本棚にあります"}
+                  {preview.registered_by_me
+                    ? " · 登録済み"
+                    : preview.already_on_shelf &&
+                      " · すでに誰かが登録しています"}
                 </p>
               </div>
               <input
@@ -289,15 +304,17 @@ export default function BookShelf({ books }: { books: Book[] }) {
                 <button
                   type="button"
                   onClick={doRegister}
-                  disabled={isPending || preview.registered_by_me}
+                  disabled={isPending}
                   className="rounded-full px-5 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
                   style={{ backgroundColor: "var(--brand-green)" }}
                 >
-                  {preview.registered_by_me
-                    ? "登録済み"
-                    : isPending
-                      ? "登録中..."
-                      : "本棚に追加"}
+                  {isPending
+                    ? "登録中..."
+                    : preview.registered_by_me
+                      ? "💬 感想を書く"
+                      : preview.already_on_shelf
+                        ? "本棚に追加して感想を書く"
+                        : "本棚に追加"}
                 </button>
                 <button
                   type="button"
