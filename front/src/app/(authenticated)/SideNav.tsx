@@ -229,6 +229,26 @@ function GoalIcon(props: IconProps) {
   );
 }
 
+function BookIcon(props: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      {/* 開いた本 */}
+      <path d="M12 6.5C10.5 5.2 8.6 4.5 6 4.5H3.5v13H6c2.6 0 4.5.7 6 2" />
+      <path d="M12 6.5c1.5-1.3 3.4-2 6-2h2.5v13H18c-2.6 0-4.5.7-6 2" />
+      <path d="M12 6.5v15" />
+    </svg>
+  );
+}
+
 function MenuIcon(props: IconProps) {
   return (
     <svg
@@ -274,6 +294,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "ダッシュボード", Icon: DashboardIcon },
   { href: "/morning", label: "朝活", Icon: MorningIcon },
   { href: "/todos", label: "TODO・目標", Icon: GoalIcon },
+  { href: "/books", label: "本棚", Icon: BookIcon },
   { href: "/events", label: "NueStar", Icon: EventsIcon },
   { href: "/competitions", label: "コンペ", Icon: CompetitionsIcon },
   { href: "/achievements", label: "成果", Icon: AchievementsIcon },

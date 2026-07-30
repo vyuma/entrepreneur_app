@@ -20,3 +20,4 @@ from app.models.morning import (
 )
 from app.models.todo import Todo
 from app.models.goal import Goal
+from app.models.book import Book, BookRegistration, BookReview
