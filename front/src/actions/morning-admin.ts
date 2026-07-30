@@ -48,6 +48,11 @@ export async function saveMorningSettings(
     task_points: num(formData, "task_points"),
     streak_bonus_per_day: num(formData, "streak_bonus_per_day"),
     streak_bonus_max: num(formData, "streak_bonus_max"),
+    lucky_enabled: formData.get("lucky_enabled") === "on",
+    lucky_min_points: num(formData, "lucky_min_points"),
+    lucky_max_points: num(formData, "lucky_max_points"),
+    post_points: num(formData, "post_points"),
+    post_template: ((formData.get("post_template") as string) || "").trim(),
   };
 
   return run(
@@ -68,6 +73,7 @@ function taskBody(formData: FormData) {
     description: ((formData.get("description") as string) || "").trim() || null,
     sort_order: num(formData, "sort_order"),
     is_active: formData.get("is_active") === "on",
+    complete_on_post: formData.get("complete_on_post") === "on",
   };
 }
 

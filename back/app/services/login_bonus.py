@@ -4,6 +4,7 @@
 1日でも空くと連続日数はリセットされる（前日に受け取っていれば継続）。
 """
 
+import random
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
@@ -25,6 +26,10 @@ STREAK_REWARDS: list[tuple[int, int]] = [
 ]
 
 MAX_POINTS = STREAK_REWARDS[-1][1]
+
+# ラッキーチャンス: 連続が途切れた人が戻ってきたときに上乗せするランダムポイントの範囲
+LUCKY_MIN_POINTS = 10
+LUCKY_MAX_POINTS = 30
 
 # 連続日数で変わる称号。閾値は降順に評価する。
 # tier は フロントの TIER_STYLES と対応させて色を出す。
@@ -54,6 +59,11 @@ def title_for_streak(streak: int) -> tuple[str, str]:
         if streak >= days:
             return label, tier
     return STREAK_TITLES[-1][1], STREAK_TITLES[-1][2]
+
+
+def roll_lucky() -> int:
+    """ラッキーチャンスの当選ポイント。"""
+    return random.randint(LUCKY_MIN_POINTS, LUCKY_MAX_POINTS)
 
 
 def _latest(db: Session, user_id: str) -> Optional[LoginBonus]:
@@ -109,23 +119,31 @@ def claim(db: Session, user: User, today: Optional[date] = None) -> tuple[LoginB
         return existing, False
 
     last = _latest(db, user.id)
-    if last is not None and last.bonus_date == today - timedelta(days=1):
-        streak = last.streak + 1
-    else:
-        streak = 1
+    continued = last is not None and last.bonus_date == today - timedelta(days=1)
+    streak = last.streak + 1 if continued else 1
 
-    points = points_for_streak(streak)
+    # 連続が途切れて戻ってきた人にはラッキーチャンスでランダムに上乗せする。
+    # 初回の人は対象外（切れた連続が無いので）。
+    lucky = 0 if continued or last is None else roll_lucky()
+    points = points_for_streak(streak) + lucky
     now = datetime.now(timezone.utc)
 
     bonus = LoginBonus(
-        user_id=user.id, bonus_date=today, points=points, streak=streak
+        user_id=user.id,
+        bonus_date=today,
+        points=points,
+        streak=streak,
+        lucky_points=lucky,
     )
     db.add(bonus)
+    reason = f"login_bonus:{streak}日連続"
+    if lucky:
+        reason += f" +ラッキー{lucky}pt"
     db.add(
         PointLog(
             user_id=user.id,
             points=points,
-            reason=f"login_bonus:{streak}日連続",
+            reason=reason,
             period_year=today.year,
             period_month=today.month,
         )

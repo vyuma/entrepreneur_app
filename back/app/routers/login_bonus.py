@@ -45,6 +45,10 @@ class LoginBonusStatus(BaseModel):
     # 累計アントレポイントと表示ランク
     total_points: int
     display_tier: str
+    # 連続が途切れているため、次の受け取りがラッキーチャンスになるか
+    lucky_pending: bool
+    lucky_min: int
+    lucky_max: int
 
 
 class ClaimResult(BaseModel):
@@ -53,6 +57,8 @@ class ClaimResult(BaseModel):
     streak: int
     title: str
     title_tier: str
+    # ラッキーチャンスで上乗せされた分（0なら発生していない）
+    lucky_points: int
     status: LoginBonusStatus
 
 
@@ -71,6 +77,12 @@ def _build_status(db: Session, user, today: date) -> LoginBonusStatus:
         .limit(30)
         .all()
     )
+
+    # 過去に受け取ったことがあるのに連続が0 → 次の受け取りはラッキーチャンス
+    has_history = (
+        db.query(LoginBonus).filter(LoginBonus.user_id == user.id).first() is not None
+    )
+    lucky_pending = has_history and not claimed and streak == 0
 
     activity_points = (
         db.query(func.sum(PointLog.points)).filter(PointLog.user_id == user.id).scalar() or 0
@@ -96,6 +108,9 @@ def _build_status(db: Session, user, today: date) -> LoginBonusStatus:
         display_tier=tiers.resolve_display_tier(
             user.display_tier, int(activity_points) + minutes // 60
         ),
+        lucky_pending=lucky_pending,
+        lucky_min=service.LUCKY_MIN_POINTS,
+        lucky_max=service.LUCKY_MAX_POINTS,
     )
 
 
@@ -119,5 +134,6 @@ def claim_bonus(discord_id: str, db: Session = Depends(get_db), _=Depends(verify
         streak=bonus.streak,
         title=title,
         title_tier=tier,
+        lucky_points=bonus.lucky_points,
         status=_build_status(db, user, today),
     )

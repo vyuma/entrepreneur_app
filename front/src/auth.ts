@@ -5,6 +5,15 @@ import { fetchWithRetry } from "@/lib/fetch-retry";
 /** ユーザー同期に失敗した後、次に再試行するまでの間隔 */
 const SYNC_RETRY_MS = 5 * 60 * 1000;
 
+/**
+ * ログイン状態を保持する期間（秒）。
+ * セッションは Cookie (authjs.session-token) に入った JWT だけで完結しており、
+ * DBは使わない。Cookie の expires はこの値から作られるため、ブラウザを閉じても
+ * 30日間はログインが維持される。
+ * 有効期限は proxy.ts がリクエストごとに延長するので、使い続けている限り切れない。
+ */
+const SESSION_MAX_AGE = 30 * 24 * 60 * 60;
+
 type DiscordProfile = {
   id: string;
   username?: string;
@@ -65,6 +74,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: {
     error: "/auth/error",
   },
+  // Cookie に JWT を保存する方式（DBセッションは使わない）。
+  // Cookie 名とセキュリティ属性は Auth.js の既定値をそのまま使う:
+  //   authjs.session-token / httpOnly / SameSite=Lax / Path=/
+  //   （https 配信時は __Secure- 接頭辞つき + Secure 属性）
+  session: { strategy: "jwt", maxAge: SESSION_MAX_AGE },
+  jwt: { maxAge: SESSION_MAX_AGE },
   providers: [
     Discord({
       authorization: {

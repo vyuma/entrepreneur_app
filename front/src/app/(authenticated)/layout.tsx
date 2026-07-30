@@ -171,6 +171,27 @@ function MorningIcon(props: IconProps) {
   );
 }
 
+function TodoIcon(props: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      {/* チェック付きのリスト */}
+      <path d="m3 7 2 2 3.5-3.5" />
+      <path d="m3 16 2 2 3.5-3.5" />
+      <path d="M12 7h9" />
+      <path d="M12 17h9" />
+    </svg>
+  );
+}
+
 function AdminIcon(props: IconProps) {
   return (
     <svg
@@ -219,6 +240,7 @@ export default async function AuthenticatedLayout({
   const navItems = [
     { href: "/dashboard", label: "ダッシュボード", Icon: DashboardIcon },
     { href: "/morning", label: "朝活", Icon: MorningIcon },
+    { href: "/todos", label: "TODO", Icon: TodoIcon },
     { href: "/events", label: "NueStar", Icon: EventsIcon },
     { href: "/competitions", label: "コンペ", Icon: CompetitionsIcon },
     { href: "/achievements", label: "成果", Icon: AchievementsIcon },

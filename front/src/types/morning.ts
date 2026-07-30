@@ -12,6 +12,7 @@ export type MorningTask = {
   description: string | null;
   sort_order: number;
   is_active: boolean;
+  complete_on_post: boolean;
 };
 
 /** 当日の消化状況つきタスク */
@@ -20,6 +21,7 @@ export type MorningTaskState = {
   title: string;
   description: string | null;
   done: boolean;
+  complete_on_post: boolean;
 };
 
 export type MorningSetting = {
@@ -30,6 +32,11 @@ export type MorningSetting = {
   task_points: number;
   streak_bonus_per_day: number;
   streak_bonus_max: number;
+  lucky_enabled: boolean;
+  lucky_min_points: number;
+  lucky_max_points: number;
+  post_points: number;
+  post_template: string;
 };
 
 export type MorningStatus = {
@@ -51,12 +58,26 @@ export type MorningStatus = {
   tasks: MorningTaskState[];
   tips: MorningTip[];
   done_count: number;
+  lucky_pending: boolean;
+  lucky_enabled: boolean;
+  lucky_min: number;
+  lucky_max: number;
+  posted_today: boolean;
+  post_points: number;
+  post_draft: string;
 };
 
 export type CheckinResult = {
   newly_checked_in: boolean;
   points: number;
   streak: number;
+  lucky_points: number;
+  status: MorningStatus;
+};
+
+export type PostResult = {
+  posted: boolean;
+  points: number;
   status: MorningStatus;
 };
 
@@ -84,6 +105,13 @@ export const EMPTY_MORNING_STATUS: MorningStatus = {
   tasks: [],
   tips: [],
   done_count: 0,
+  lucky_pending: false,
+  lucky_enabled: true,
+  lucky_min: 10,
+  lucky_max: 30,
+  posted_today: false,
+  post_points: 10,
+  post_draft: "",
 };
 
 export const DEFAULT_MORNING_SETTING: MorningSetting = {
@@ -94,6 +122,11 @@ export const DEFAULT_MORNING_SETTING: MorningSetting = {
   task_points: 5,
   streak_bonus_per_day: 2,
   streak_bonus_max: 20,
+  lucky_enabled: true,
+  lucky_min_points: 10,
+  lucky_max_points: 30,
+  post_points: 10,
+  post_template: "",
 };
 
 /** 0時からの経過分を "HH:MM" に変換する（<input type="time"> 用） */

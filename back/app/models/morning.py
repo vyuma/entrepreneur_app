@@ -47,6 +47,13 @@ class MorningSetting(Base):
     # 連続日数1日につき上乗せするポイントと、その上限
     streak_bonus_per_day: Mapped[int] = mapped_column(Integer, nullable=False, default=2)
     streak_bonus_max: Mapped[int] = mapped_column(Integer, nullable=False, default=20)
+    # ラッキーチャンス: 連続が途切れた後の復帰チェックインでランダムに貰える救済ボーナス
+    lucky_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    lucky_min_points: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
+    lucky_max_points: Mapped[int] = mapped_column(Integer, nullable=False, default=30)
+    # 朝活宣言をDiscordに投稿したときのポイントと、その定型文
+    post_points: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
+    post_template: Mapped[str] = mapped_column(Text, nullable=False, default="")
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
     )
@@ -62,6 +69,8 @@ class MorningTask(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # 朝活宣言を投稿したときに自動でクリアになる項目か
+    complete_on_post: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
@@ -93,6 +102,8 @@ class MorningCheckin(Base):
     streak: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     # チェックインした時刻（0時からの経過分）。何時に起きたかの記録
     checkin_minute: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # ラッキーチャンスで上乗せされたポイント（0なら発生していない）。points に含む
+    lucky_points: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
@@ -113,4 +124,23 @@ class MorningTaskDone(Base):
     )
     done_date: Mapped[date] = mapped_column(Date, nullable=False)
     points: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class MorningPost(Base):
+    """Discord に投稿した朝活宣言。1ユーザー1日1回までポイントになる。"""
+
+    __tablename__ = "morning_posts"
+    __table_args__ = (
+        UniqueConstraint("user_id", "post_date", name="uq_morning_post_user_date"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
+    post_date: Mapped[date] = mapped_column(Date, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    points: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # 投稿先チャンネルと Discord 側のメッセージID
+    channel_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    message_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

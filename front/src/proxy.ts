@@ -25,8 +25,15 @@ function hasPkceCookie(request: NextRequest) {
   return PKCE_COOKIE_NAMES.some((name) => request.cookies.has(name));
 }
 
-export async function proxy(request: NextRequest) {
-  const session = await auth();
+/**
+ * auth() でラップすると、Auth.js が読み直したセッションの Set-Cookie が
+ * ここで返すレスポンスに引き継がれる。これで Cookie の有効期限がリクエストごとに
+ * 延長され（ローリング更新）、アプリを使い続けている間はログインが切れない。
+ * 素で `await auth()` を呼ぶと更新後の Set-Cookie が捨てられるため、
+ * 初回サインインから maxAge 経過で必ず再ログインになってしまう。
+ */
+export const proxy = auth((request) => {
+  const session = request.auth;
   const { pathname } = request.nextUrl;
   // 公開ポートフォリオは未ログインでも閲覧できる（非公開かどうかはAPI側で判定）
   const isPublic =
@@ -34,7 +41,8 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/auth") ||
     pathname.startsWith("/portfolio");
 
-  // 古いセッションCookieが残っていてPKCEフロー中でない場合のみ削除
+  // 復号できない古いセッションCookie（AUTH_SECRET 変更後など）が残っていて
+  // PKCEフロー中でない場合のみ削除する
   if (!session && hasSessionCookie(request) && !hasPkceCookie(request)) {
     const res = NextResponse.redirect(new URL("/", request.url));
     for (const name of SESSION_COOKIE_NAMES) {
@@ -47,7 +55,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/", request.url));
   }
   return NextResponse.next();
-}
+});
 
 export const config = {
   // /api, /_next/*, favicon.ico, 拡張子付きの静的ファイル (image.png 等) は除外

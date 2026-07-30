@@ -7,6 +7,7 @@
 サーバーのタイムゾーンに依存しないよう、日付・時刻の判定はすべて JST で行う。
 """
 
+import random
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -14,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.models.morning import (
     MorningCheckin,
+    MorningPost,
     MorningSetting,
     MorningTask,
     MorningTaskDone,
@@ -23,6 +25,13 @@ from app.models.point_log import PointLog
 from app.models.user import User
 
 JST = ZoneInfo("Asia/Tokyo")
+
+# 朝活宣言の既定の定型文。管理画面から変更できる。
+# {name} 表示名 / {date} 今日の日付 / {time} 現在時刻 / {streak} 連続日数 / {tasks} 今朝やることリスト
+DEFAULT_POST_TEMPLATE = """おはようございます！ {time} から朝活を始めます 🌅
+今日やること:
+{tasks}
+（{streak}日連続の朝活 / {date}）"""
 
 
 def now_jst() -> datetime:
@@ -50,7 +59,7 @@ def get_settings(db: Session) -> MorningSetting:
     """朝活設定を取得する。まだ無ければ既定値で作る。"""
     setting = db.query(MorningSetting).first()
     if setting is None:
-        setting = MorningSetting()
+        setting = MorningSetting(post_template=DEFAULT_POST_TEMPLATE)
         db.add(setting)
         db.commit()
         db.refresh(setting)
@@ -76,6 +85,21 @@ def streak_bonus(setting: MorningSetting, streak: int) -> int:
 
 def points_for(setting: MorningSetting, streak: int) -> int:
     return setting.base_points + streak_bonus(setting, streak)
+
+
+def roll_lucky(setting: MorningSetting) -> int:
+    """ラッキーチャンスの当選ポイントを決める。無効なら0。
+
+    連続が途切れた人が戻ってきたときの救済。連続ボーナスの代わりに
+    min〜max のランダムなポイントを上乗せする。
+    """
+    if not setting.lucky_enabled:
+        return 0
+    low = max(setting.lucky_min_points, 0)
+    high = max(setting.lucky_max_points, low)
+    if high == 0:
+        return 0
+    return random.randint(low, high)
 
 
 # --- コンテンツ ---
@@ -176,8 +200,13 @@ def checkin(db: Session, user: User) -> tuple[MorningCheckin, bool]:
         )
 
     last = _latest(db, user.id)
-    streak = last.streak + 1 if last and last.checkin_date == today - timedelta(days=1) else 1
-    points = points_for(setting, streak)
+    continued = last is not None and last.checkin_date == today - timedelta(days=1)
+    streak = last.streak + 1 if continued else 1
+
+    # 一度でも朝活したことがある人が連続を切らして戻ってきたらラッキーチャンス。
+    # 初回チェックインの人は対象外（切れた連続が無いので）。
+    lucky = 0 if continued or last is None else roll_lucky(setting)
+    points = points_for(setting, streak) + lucky
 
     record = MorningCheckin(
         user_id=user.id,
@@ -185,13 +214,17 @@ def checkin(db: Session, user: User) -> tuple[MorningCheckin, bool]:
         points=points,
         streak=streak,
         checkin_minute=minute,
+        lucky_points=lucky,
     )
     db.add(record)
+    reason = f"morning:{streak}日連続 {format_minute(minute)}"
+    if lucky:
+        reason += f" +ラッキー{lucky}pt"
     db.add(
         PointLog(
             user_id=user.id,
             points=points,
-            reason=f"morning:{streak}日連続 {format_minute(minute)}",
+            reason=reason,
             period_year=today.year,
             period_month=today.month,
         )
@@ -199,6 +232,107 @@ def checkin(db: Session, user: User) -> tuple[MorningCheckin, bool]:
     db.commit()
     db.refresh(record)
     return record, True
+
+
+def post_of(db: Session, user_id: str, day: date) -> MorningPost | None:
+    return (
+        db.query(MorningPost)
+        .filter(MorningPost.user_id == user_id, MorningPost.post_date == day)
+        .first()
+    )
+
+
+def render_template(db: Session, setting: MorningSetting, user: User) -> str:
+    """定型文のプレースホルダを埋めて、投稿欄の初期値を作る。"""
+    now = now_jst()
+    today = now.date()
+    streak = current_streak(db, user.id, today)
+    if checkin_of(db, user.id, today) is None:
+        streak += 1
+
+    tasks = active_tasks(db)
+    done = done_task_ids(db, user.id, today)
+    # 宣言なので、まだ終わっていない項目だけを並べる（全部済みなら全項目）
+    remaining = [t for t in tasks if t.id not in done] or tasks
+    task_lines = "\n".join(f"・{t.title}" for t in remaining[:5])
+
+    template = setting.post_template or DEFAULT_POST_TEMPLATE
+    return (
+        template.replace("{name}", user.display_name or user.username)
+        .replace("{date}", today.strftime("%Y/%m/%d"))
+        .replace("{time}", format_minute(minute_of_day(now)))
+        .replace("{streak}", str(max(streak, 1)))
+        .replace("{tasks}", task_lines)
+    )
+
+
+def create_post(db: Session, user: User, content: str) -> tuple[MorningPost, int]:
+    """朝活宣言を記録し、(記録, 獲得ポイント) を返す。
+
+    Discord への送信は呼び出し側（ルーター）が行う。ここではDBだけを扱う。
+    complete_on_post が立っているタスクは同時にクリア扱いにする。
+    """
+    setting = get_settings(db)
+    today = today_jst()
+    content = content.strip()
+
+    if not content:
+        raise MorningError("投稿する文章が空です")
+    if len(content) > 1900:
+        raise MorningError("投稿は1900文字までです")
+    if checkin_of(db, user.id, today) is None:
+        raise MorningError("先に朝活チェックインをしてください")
+    if post_of(db, user.id, today) is not None:
+        raise MorningError("今日はすでに投稿済みです")
+
+    points = setting.post_points
+    post = MorningPost(
+        user_id=user.id,
+        post_date=today,
+        content=content,
+        points=points,
+        channel_id=user.discord_channel_id,
+    )
+    db.add(post)
+    if points:
+        db.add(
+            PointLog(
+                user_id=user.id,
+                points=points,
+                reason="morning_post:朝活宣言",
+                period_year=today.year,
+                period_month=today.month,
+            )
+        )
+
+    # 「Discord に投稿する」系のタスクは投稿と同時にクリアにする
+    done = done_task_ids(db, user.id, today)
+    for task in active_tasks(db):
+        if not task.complete_on_post or task.id in done:
+            continue
+        db.add(
+            MorningTaskDone(
+                user_id=user.id,
+                task_id=task.id,
+                done_date=today,
+                points=setting.task_points,
+            )
+        )
+        points += setting.task_points
+        if setting.task_points:
+            db.add(
+                PointLog(
+                    user_id=user.id,
+                    points=setting.task_points,
+                    reason=f"morning_task:{task.title}",
+                    period_year=today.year,
+                    period_month=today.month,
+                )
+            )
+
+    db.commit()
+    db.refresh(post)
+    return post, points
 
 
 def done_task_ids(db: Session, user_id: str, day: date) -> set[str]:

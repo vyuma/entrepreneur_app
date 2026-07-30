@@ -16,6 +16,9 @@ export type LoginBonusStatus = {
   rewards: RewardStep[];
   total_points: number;
   display_tier: TierName;
+  lucky_pending: boolean;
+  lucky_min: number;
+  lucky_max: number;
 };
 
 export type ClaimResult = {
@@ -24,6 +27,7 @@ export type ClaimResult = {
   streak: number;
   title: string;
   title_tier: TierName;
+  lucky_points: number;
   status: LoginBonusStatus;
 };
 
@@ -41,4 +45,7 @@ export const EMPTY_STATUS: LoginBonusStatus = {
   rewards: [],
   total_points: 0,
   display_tier: "entry",
+  lucky_pending: false,
+  lucky_min: 10,
+  lucky_max: 30,
 };

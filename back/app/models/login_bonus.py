@@ -22,4 +22,8 @@ class LoginBonus(Base):
     points: Mapped[int] = mapped_column(Integer, nullable=False)
     # 受け取った時点での連続日数
     streak: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    # ラッキーチャンス（連続が途切れた後の復帰時）で上乗せされた分。points に含む
+    lucky_points: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

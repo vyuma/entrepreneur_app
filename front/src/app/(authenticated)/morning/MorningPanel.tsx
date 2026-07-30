@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { checkinMorning, toggleMorningTask } from "@/actions/morning";
+import {
+  checkinMorning,
+  postMorningDeclaration,
+  toggleMorningTask,
+} from "@/actions/morning";
+import BigCheck from "@/app/components/BigCheck";
+import PointRoulette from "@/app/components/PointRoulette";
 import type { MorningStatus } from "@/types/morning";
 
 /** 直近7日分のチェックイン状況（今日を右端に置く） */
@@ -25,14 +31,37 @@ export default function MorningPanel({ status }: { status: MorningStatus }) {
   const [message, setMessage] = useState<Message>(null);
   const [pendingTaskId, setPendingTaskId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  // ルーレットに出す獲得ポイント。null の間は回っていない
+  const [rouletteTarget, setRouletteTarget] = useState<number | null>(null);
+  const [rouletteLucky, setRouletteLucky] = useState(false);
+  const [draft, setDraft] = useState(status.post_draft);
 
   useEffect(() => {
     setCurrent(status);
+    setDraft(status.post_draft);
   }, [status]);
 
   const doCheckin = () => {
     startTransition(async () => {
       const res = await checkinMorning(null);
+      if (res.result) {
+        setCurrent(res.result.status);
+        setDraft(res.result.status.post_draft);
+        // 新規チェックインのときだけルーレットを回す
+        if (res.result.newly_checked_in) {
+          setRouletteLucky(res.result.lucky_points > 0);
+          setRouletteTarget(res.result.points);
+        }
+      }
+      setMessage({ ok: res.ok, text: res.message });
+    });
+  };
+
+  const doPost = () => {
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.set("content", draft);
+      const res = await postMorningDeclaration(null, formData);
       if (res.result) setCurrent(res.result.status);
       setMessage({ ok: res.ok, text: res.message });
     });
@@ -106,21 +135,66 @@ export default function MorningPanel({ status }: { status: MorningStatus }) {
                 )}
                 {checkedIn
                   ? "チェックイン済み"
-                  : current.is_open
-                    ? `朝活チェックイン（+${current.today_points}pt）`
-                    : "受付時間外"}
+                  : !current.is_open
+                    ? "受付時間外"
+                    : current.lucky_pending
+                      ? "ルーレットを回す 🎰"
+                      : `朝活チェックイン（+${current.today_points}pt）`}
               </button>
               <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
                 {!current.enabled
                   ? "朝活プログラムは停止中です"
                   : checkedIn
                     ? `明日も続けると +${current.next_points}pt`
-                    : current.is_open
-                      ? `基礎 ${current.base_points}pt + 連続ボーナス`
-                      : `次の受付は ${current.start_at} から`}
+                    : !current.is_open
+                      ? `次の受付は ${current.start_at} から`
+                      : current.lucky_pending
+                        ? `ラッキーチャンス！ ${current.today_points}pt + ${current.lucky_min}〜${current.lucky_max}pt`
+                        : `基礎 ${current.base_points}pt + 連続ボーナス`}
               </p>
             </div>
           </div>
+
+          {/* ポイントルーレット。受け取り前は ?? を出し、押すと数字が回る */}
+          {(rouletteTarget !== null || (!checkedIn && current.is_open)) && (
+            <div
+              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-3"
+              style={{
+                borderColor: rouletteLucky
+                  ? "var(--brand-yellow)"
+                  : "color-mix(in srgb, currentColor 12%, transparent)",
+              }}
+            >
+              <div className="min-w-0">
+                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-400">
+                  {rouletteLucky ? "Lucky Chance" : "Point Roulette"}
+                </p>
+                <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                  {rouletteTarget !== null
+                    ? rouletteLucky
+                      ? "ラッキーチャンス当選！連続が切れても救済ボーナスが出ました"
+                      : "今朝の獲得ポイント"
+                    : current.lucky_pending
+                      ? `連続が途切れています。今日はランダムで ${current.lucky_min}〜${current.lucky_max}pt の救済ボーナス付き`
+                      : "チェックインすると回ります"}
+                </p>
+              </div>
+              <PointRoulette
+                target={rouletteTarget}
+                min={
+                  current.lucky_pending
+                    ? current.today_points + current.lucky_min
+                    : current.base_points
+                }
+                max={
+                  current.lucky_pending
+                    ? current.today_points + current.lucky_max
+                    : current.today_points + current.lucky_max
+                }
+                lucky={rouletteLucky}
+              />
+            </div>
+          )}
 
           {/* 直近7日 */}
           <div className="flex gap-1.5">
@@ -169,12 +243,21 @@ export default function MorningPanel({ status }: { status: MorningStatus }) {
               今朝やること
             </h2>
             <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              1件チェックするごとに +{current.task_points}pt
+              タップでクリア、1件ごとに +{current.task_points}pt
               {checkedIn ? "" : "（チェックイン後に記録できます）"}
             </p>
           </div>
-          <span className="font-mono text-xs tabular-nums text-zinc-400">
-            {current.done_count}/{total}
+          <span className="font-mono tabular-nums text-zinc-400">
+            <span
+              className="text-2xl font-semibold transition-colors"
+              style={{
+                color:
+                  current.done_count > 0 ? "var(--brand-green)" : undefined,
+              }}
+            >
+              {current.done_count}
+            </span>
+            <span className="text-sm"> / {total}</span>
           </span>
         </div>
 
@@ -196,41 +279,151 @@ export default function MorningPanel({ status }: { status: MorningStatus }) {
             まだリストが設定されていません。
           </p>
         ) : (
-          <ul className="flex flex-col">
-            {current.tasks.map((task) => (
-              <li
-                key={task.id}
-                className="border-t border-zinc-100 py-2.5 first:border-t-0 dark:border-zinc-800/70"
-              >
-                <label className="flex cursor-pointer items-start gap-3">
-                  <input
-                    type="checkbox"
-                    checked={task.done}
-                    disabled={!checkedIn || pendingTaskId === task.id}
-                    onChange={(e) => doToggle(task.id, e.target.checked)}
-                    className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--brand-green)] disabled:opacity-40"
-                  />
-                  <span className="min-w-0">
-                    <span
-                      className={`block text-sm ${
-                        task.done
-                          ? "text-zinc-400 line-through"
-                          : "text-zinc-700 dark:text-zinc-300"
-                      }`}
-                    >
-                      {task.title}
-                    </span>
-                    {task.description && (
-                      <span className="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">
-                        {task.description}
+          <ul className="flex flex-col gap-2">
+            {current.tasks.map((task) => {
+              const locked =
+                !checkedIn ||
+                pendingTaskId === task.id ||
+                task.complete_on_post;
+              return (
+                <li key={task.id}>
+                  <button
+                    type="button"
+                    onClick={() => doToggle(task.id, !task.done)}
+                    disabled={locked}
+                    aria-pressed={task.done}
+                    className="group flex w-full items-center gap-4 rounded-xl border p-3.5 text-left transition-all duration-200 enabled:hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-70 enabled:active:scale-[0.99] sm:p-4"
+                    style={{
+                      borderColor: task.done
+                        ? "var(--brand-green)"
+                        : "color-mix(in srgb, currentColor 12%, transparent)",
+                      backgroundColor: task.done
+                        ? "color-mix(in srgb, var(--brand-green) 8%, transparent)"
+                        : undefined,
+                    }}
+                  >
+                    <BigCheck
+                      done={task.done}
+                      pending={pendingTaskId === task.id}
+                    />
+
+                    <span className="min-w-0 flex-1">
+                      <span
+                        className={`block text-[15px] font-medium transition-colors sm:text-base ${
+                          task.done
+                            ? "text-zinc-400 line-through decoration-[1.5px]"
+                            : "text-zinc-800 dark:text-zinc-100"
+                        }`}
+                      >
+                        {task.title}
                       </span>
-                    )}
-                  </span>
-                </label>
-              </li>
-            ))}
+                      {task.description && !task.done && (
+                        <span className="mt-1 block text-xs text-zinc-500 dark:text-zinc-400">
+                          {task.description}
+                        </span>
+                      )}
+                      {task.complete_on_post && !task.done && (
+                        <span className="mt-1.5 inline-block rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                          下の宣言投稿でクリア
+                        </span>
+                      )}
+                    </span>
+
+                    {/* 獲得ポイント。クリア済みは緑で確定表示 */}
+                    <span
+                      className={`shrink-0 font-mono text-xs tabular-nums transition-all duration-300 ${
+                        task.done
+                          ? "scale-110 font-semibold"
+                          : "text-zinc-300 dark:text-zinc-600"
+                      }`}
+                      style={{
+                        color: task.done ? "var(--brand-green)" : undefined,
+                      }}
+                    >
+                      +{current.task_points}pt
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         )}
+
+        {/* 全部クリアしたときのごほうび表示 */}
+        {total > 0 && current.done_count === total && (
+          <p
+            className="mt-4 rounded-lg border px-4 py-3 text-center text-sm font-medium"
+            style={{
+              borderColor: "var(--brand-green)",
+              color: "var(--brand-green)",
+              backgroundColor:
+                "color-mix(in srgb, var(--brand-green) 8%, transparent)",
+            }}
+          >
+            🎉 今朝のリストを全部クリアしました！最高の一日にしましょう
+          </p>
+        )}
+      </section>
+
+      {/* --- 朝活宣言の投稿 --- */}
+      <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            朝活宣言を投稿する
+          </h2>
+          <span className="font-mono text-xs text-zinc-400">
+            +{current.post_points}pt
+          </span>
+        </div>
+        <p className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
+          自分の times チャンネルに投稿されます。文章は入力済みなので、
+          そのまま押すだけでも大丈夫です。
+          {current.posted_today
+            ? "（本日分は投稿済み）"
+            : checkedIn
+              ? ""
+              : "（チェックイン後に投稿できます）"}
+        </p>
+
+        <textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          rows={6}
+          maxLength={1900}
+          disabled={current.posted_today || !checkedIn}
+          className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm leading-relaxed outline-none focus:border-[var(--brand-blue)] disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950"
+        />
+
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={doPost}
+            disabled={
+              isPending || current.posted_today || !checkedIn || !draft.trim()
+            }
+            className="inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            style={{
+              backgroundColor: current.posted_today
+                ? "#a1a1aa"
+                : "var(--brand-blue)",
+            }}
+          >
+            {current.posted_today
+              ? "投稿済み"
+              : isPending
+                ? "投稿中..."
+                : "Discord に投稿してクリア"}
+          </button>
+          {!current.posted_today && checkedIn && (
+            <button
+              type="button"
+              onClick={() => setDraft(current.post_draft)}
+              className="text-xs text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-300"
+            >
+              定型文に戻す
+            </button>
+          )}
+        </div>
       </section>
 
       {/* --- 朝活のコツ --- */}

@@ -138,6 +138,54 @@ function SettingsForm({ setting }: { setting: MorningSetting }) {
           defaultValue={setting.streak_bonus_max}
         />
 
+        <div className="h-px bg-zinc-100 sm:col-span-2 dark:bg-zinc-800" />
+
+        <label className="flex items-center gap-2 text-sm text-zinc-700 sm:col-span-2 dark:text-zinc-300">
+          <input
+            type="checkbox"
+            name="lucky_enabled"
+            defaultChecked={setting.lucky_enabled}
+            className="h-4 w-4 accent-[var(--brand-green)]"
+          />
+          ラッキーチャンスを有効にする
+        </label>
+        <p className="text-xs text-zinc-500 sm:col-span-2 dark:text-zinc-400">
+          連続が途切れた人が戻ってきた日のチェックインに、下の範囲から
+          ランダムで救済ボーナスを上乗せします（初回の人は対象外）。
+        </p>
+        <NumberField
+          label="ラッキーチャンス 下限pt"
+          name="lucky_min_points"
+          defaultValue={setting.lucky_min_points}
+        />
+        <NumberField
+          label="ラッキーチャンス 上限pt"
+          name="lucky_max_points"
+          defaultValue={setting.lucky_max_points}
+        />
+
+        <div className="h-px bg-zinc-100 sm:col-span-2 dark:bg-zinc-800" />
+
+        <NumberField
+          label="朝活宣言の投稿ポイント"
+          name="post_points"
+          defaultValue={setting.post_points}
+        />
+        <label className="flex flex-col gap-1 text-xs text-zinc-500 sm:col-span-2 dark:text-zinc-400">
+          朝活宣言の定型文
+          <textarea
+            name="post_template"
+            rows={5}
+            defaultValue={setting.post_template}
+            className={inputClass}
+          />
+          <span className="text-[11px] text-zinc-400">
+            使える置き換え: {"{name}"} 表示名 / {"{date}"} 日付 / {"{time}"}{" "}
+            現在時刻 / {"{streak}"} 連続日数 / {"{tasks}"}{" "}
+            未消化のやることリスト
+          </span>
+        </label>
+
         <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
           <button
             type="submit"
@@ -218,6 +266,14 @@ function TaskSection({ tasks }: { tasks: MorningTask[] }) {
           />
           有効
         </label>
+        <label className="flex items-center gap-2 text-xs text-zinc-500 sm:col-span-4 dark:text-zinc-400">
+          <input
+            type="checkbox"
+            name="complete_on_post"
+            className="h-4 w-4 accent-[var(--brand-blue)]"
+          />
+          朝活宣言の投稿でクリアにする（手動チェックはできなくなります）
+        </label>
         <div className="flex flex-wrap items-center gap-3 sm:col-span-4">
           <button
             type="submit"
@@ -242,7 +298,7 @@ function TaskSection({ tasks }: { tasks: MorningTask[] }) {
             >
               <form
                 action={updateAction}
-                className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_5rem_auto_auto]"
+                className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_5rem_auto_auto_auto]"
               >
                 <input type="hidden" name="task_id" value={task.id} />
                 <input
@@ -275,6 +331,15 @@ function TaskSection({ tasks }: { tasks: MorningTask[] }) {
                     className="h-4 w-4 accent-[var(--brand-green)]"
                   />
                   有効
+                </label>
+                <label className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                  <input
+                    type="checkbox"
+                    name="complete_on_post"
+                    defaultChecked={task.complete_on_post}
+                    className="h-4 w-4 accent-[var(--brand-blue)]"
+                  />
+                  投稿でクリア
                 </label>
                 <button
                   type="submit"

@@ -345,6 +345,25 @@ def post_intro(
         )
 
 
+def post_morning_declaration(channel_id: str, discord_id: str, content: str) -> str:
+    """朝活宣言を本人の times チャンネルに投稿し、メッセージIDを返す。
+
+    Bot の発言なので times の作業時間パーサ（Bot発言は無視する）には拾われない。
+    """
+    with httpx.Client() as client:
+        res = client.post(
+            f"{DISCORD_API}/channels/{channel_id}/messages",
+            headers=_headers(),
+            json={
+                "content": f"🌅 <@{discord_id}> の朝活宣言\n{content}",
+                # メンションで通知が飛ばないようにする（本人の宣言なので不要）
+                "allowed_mentions": {"parse": []},
+            },
+        )
+        res.raise_for_status()
+        return res.json()["id"]
+
+
 def unlock_user_channel(channel_id: str, discord_id: str) -> None:
     """既存の times チャンネルを全員が閲覧・書き込みできる状態に直す。
 

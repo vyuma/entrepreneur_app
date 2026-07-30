@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { apiFetch } from "@/lib/api";
-import type { CheckinResult, ToggleResult } from "@/types/morning";
+import type { CheckinResult, PostResult, ToggleResult } from "@/types/morning";
 
 /** 操作者は必ずセッション由来の discord_id を使う（なりすまし防止） */
 async function actorId() {
@@ -48,6 +48,48 @@ export async function checkinMorning(
       message: result.newly_checked_in
         ? `+${result.points}pt を獲得しました！（${result.streak}日連続の朝活）`
         : "本日分はチェックイン済みです",
+    };
+  } catch (err) {
+    return { ok: false, message: detailOf(err) };
+  }
+}
+
+export type PostState = {
+  ok: boolean;
+  message: string;
+  result?: PostResult;
+};
+
+/** 朝活宣言を自分の times チャンネルに投稿する */
+export async function postMorningDeclaration(
+  _prev: PostState | null,
+  formData: FormData,
+): Promise<PostState> {
+  let discordId: string;
+  try {
+    discordId = await actorId();
+  } catch {
+    return { ok: false, message: "ログインが必要です" };
+  }
+
+  const content = ((formData.get("content") as string) ?? "").trim();
+  if (!content) {
+    return { ok: false, message: "投稿する文章を入力してください" };
+  }
+
+  try {
+    const result: PostResult = await apiFetch(
+      `/api/morning/post?discord_id=${discordId}`,
+      { method: "POST", body: JSON.stringify({ content }) },
+    );
+    revalidatePath("/morning");
+    revalidatePath("/points");
+    return {
+      ok: true,
+      result,
+      message: result.posted
+        ? `Discord に投稿しました！ +${result.points}pt`
+        : `記録しました（+${result.points}pt）が、Discord への投稿に失敗しました`,
     };
   } catch (err) {
     return { ok: false, message: detailOf(err) };

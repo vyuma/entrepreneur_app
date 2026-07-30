@@ -4,17 +4,21 @@
 - /api/morning/admin/... : 管理者向け（時間帯とポイントの設定、タスク／コツの編集）
 """
 
+import logging
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app.core import discord
 from app.core.auth import Actor, require_admin, verify_token
 from app.core.database import get_db
 from app.models.morning import MorningTask, MorningTaskDone, MorningTip
 from app.services import morning as service
 from app.services.competition_entry import user_or_404
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -38,6 +42,7 @@ class TaskOut(BaseModel):
     description: str | None
     sort_order: int
     is_active: bool
+    complete_on_post: bool
 
     model_config = {"from_attributes": True}
 
@@ -47,6 +52,8 @@ class TaskState(BaseModel):
     title: str
     description: str | None
     done: bool
+    # 朝活宣言の投稿でクリアになる項目（チェックボックスの代わりに投稿を促す）
+    complete_on_post: bool
 
 
 class SettingOut(BaseModel):
@@ -57,6 +64,11 @@ class SettingOut(BaseModel):
     task_points: int
     streak_bonus_per_day: int
     streak_bonus_max: int
+    lucky_enabled: bool
+    lucky_min_points: int
+    lucky_max_points: int
+    post_points: int
+    post_template: str
 
     model_config = {"from_attributes": True}
 
@@ -84,12 +96,24 @@ class MorningStatus(BaseModel):
     tasks: list[TaskState]
     tips: list[TipOut]
     done_count: int
+    # ラッキーチャンス: 連続が切れているので次のチェックインがランダム加算になる
+    lucky_pending: bool
+    lucky_enabled: bool
+    lucky_min: int
+    lucky_max: int
+    # 朝活宣言の投稿
+    posted_today: bool
+    post_points: int
+    # 投稿欄の初期値（定型文を埋めたもの）
+    post_draft: str
 
 
 class CheckinResult(BaseModel):
     newly_checked_in: bool
     points: int
     streak: int
+    # ラッキーチャンスで上乗せされた分（0なら発生していない）
+    lucky_points: int
     status: MorningStatus
 
 
@@ -102,6 +126,17 @@ class ToggleResult(BaseModel):
     status: MorningStatus
 
 
+class PostCreate(BaseModel):
+    content: str = Field(min_length=1, max_length=1900)
+
+
+class PostResult(BaseModel):
+    # Discord に実際に届いたか（記録とポイントは失敗しても残る）
+    posted: bool
+    points: int
+    status: MorningStatus
+
+
 class SettingUpdate(BaseModel):
     enabled: bool
     start_minute: int = Field(ge=0, le=1439)
@@ -110,6 +145,11 @@ class SettingUpdate(BaseModel):
     task_points: int = Field(ge=0, le=1000)
     streak_bonus_per_day: int = Field(ge=0, le=1000)
     streak_bonus_max: int = Field(ge=0, le=10000)
+    lucky_enabled: bool = True
+    lucky_min_points: int = Field(default=10, ge=0, le=10000)
+    lucky_max_points: int = Field(default=30, ge=0, le=10000)
+    post_points: int = Field(default=10, ge=0, le=1000)
+    post_template: str = ""
 
 
 class TaskUpsert(BaseModel):
@@ -117,6 +157,7 @@ class TaskUpsert(BaseModel):
     description: str | None = None
     sort_order: int = 0
     is_active: bool = True
+    complete_on_post: bool = False
 
 
 class TipUpsert(BaseModel):
@@ -141,9 +182,22 @@ def _build_status(db: Session, user) -> MorningStatus:
 
     done = service.done_task_ids(db, user.id, today)
     tasks = [
-        TaskState(id=t.id, title=t.title, description=t.description, done=t.id in done)
+        TaskState(
+            id=t.id,
+            title=t.title,
+            description=t.description,
+            done=t.id in done,
+            complete_on_post=t.complete_on_post,
+        )
         for t in service.active_tasks(db)
     ]
+
+    # 過去に朝活したことがあるのに連続が0 → 次のチェックインはラッキーチャンス
+    has_history = service.total_days(db, user.id) > 0
+    lucky_pending = (
+        setting.lucky_enabled and has_history and checkin is None and streak == 0
+    )
+    post = service.post_of(db, user.id, today)
 
     return MorningStatus(
         enabled=setting.enabled,
@@ -166,6 +220,13 @@ def _build_status(db: Session, user) -> MorningStatus:
         tasks=tasks,
         tips=[TipOut.model_validate(t) for t in service.active_tips(db)],
         done_count=len([t for t in tasks if t.done]),
+        lucky_pending=lucky_pending,
+        lucky_enabled=setting.lucky_enabled,
+        lucky_min=setting.lucky_min_points,
+        lucky_max=setting.lucky_max_points,
+        posted_today=post is not None,
+        post_points=setting.post_points,
+        post_draft=post.content if post else service.render_template(db, setting, user),
     )
 
 
@@ -193,6 +254,7 @@ def do_checkin(discord_id: str, db: Session = Depends(get_db), _=Depends(verify_
         newly_checked_in=newly,
         points=record.points,
         streak=record.streak,
+        lucky_points=record.lucky_points,
         status=_build_status(db, user),
     )
 
@@ -213,6 +275,45 @@ def toggle_task(
     return ToggleResult(delta_points=delta, status=_build_status(db, user))
 
 
+@router.post("/post", response_model=PostResult)
+def create_post(
+    body: PostCreate,
+    discord_id: str,
+    db: Session = Depends(get_db),
+    _=Depends(verify_token),
+):
+    """朝活宣言を自分の times チャンネルに投稿する。"""
+    user = user_or_404(db, discord_id)
+    if not user.discord_channel_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="投稿先の times チャンネルが見つかりません。運営に連絡してください。",
+        )
+
+    try:
+        post, points = service.create_post(db, user, body.content)
+    except service.MorningError as exc:
+        raise _bad_request(exc) from exc
+
+    # Discord への送信が失敗しても記録とポイントは残す（二重投稿を防ぐため）。
+    # 投稿できたかどうかは message_id の有無で判別できる。
+    try:
+        post.message_id = discord.post_morning_declaration(
+            user.discord_channel_id, user.discord_id, post.content
+        )
+        db.commit()
+        posted = True
+    except Exception:
+        logger.exception("朝活宣言のDiscord投稿に失敗しました user=%s", user.id)
+        posted = False
+
+    return PostResult(
+        posted=posted,
+        points=points,
+        status=_build_status(db, user),
+    )
+
+
 # --- 管理者：設定 ---
 
 
@@ -231,6 +332,11 @@ def admin_update_settings(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="開始時刻と終了時刻を同じにはできません",
+        )
+    if body.lucky_min_points > body.lucky_max_points:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="ラッキーチャンスの下限が上限を超えています",
         )
     setting = service.get_settings(db)
     for field, value in body.model_dump().items():

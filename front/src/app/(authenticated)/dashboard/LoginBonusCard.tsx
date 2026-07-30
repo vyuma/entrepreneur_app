@@ -1,10 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
-import { type ClaimState, claimLoginBonus } from "@/actions/login-bonus";
+import { useEffect, useState, useTransition } from "react";
+import { claimLoginBonus } from "@/actions/login-bonus";
+import PointRoulette from "@/app/components/PointRoulette";
 import { POINTS_LADDER, resolveTier, TIER_STYLES } from "@/lib/tiers";
 import type { LoginBonusStatus } from "@/types/login-bonus";
+
+/** ルーレット回転中に出す数字の下限（連続1日目の付与ポイント相当） */
+const ROULETTE_FLOOR = 10;
 
 /** 直近7日分の受け取り状況（今日を右端に置く） */
 function recentWeek(recent: string[]): { date: string; claimed: boolean }[] {
@@ -24,13 +28,34 @@ export default function LoginBonusCard({
 }: {
   status: LoginBonusStatus;
 }) {
-  const [state, action, pending] = useActionState<ClaimState | null, FormData>(
-    claimLoginBonus,
+  // 受け取り直後はサーバーの再取得を待たずに最新値を表示する
+  const [current, setCurrent] = useState(status);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
     null,
   );
+  const [pending, startTransition] = useTransition();
+  // ルーレットに出す獲得ポイント。null の間は回っていない
+  const [rouletteTarget, setRouletteTarget] = useState<number | null>(null);
+  const [rouletteLucky, setRouletteLucky] = useState(false);
 
-  // 受け取り直後はサーバーの再取得を待たずに最新値を表示する
-  const current = state?.result?.status ?? status;
+  useEffect(() => {
+    setCurrent(status);
+  }, [status]);
+
+  const doClaim = () => {
+    startTransition(async () => {
+      const res = await claimLoginBonus(null);
+      if (res.result) {
+        setCurrent(res.result.status);
+        if (res.result.newly_claimed) {
+          setRouletteLucky(res.result.lucky_points > 0);
+          setRouletteTarget(res.result.points);
+        }
+      }
+      setMessage({ ok: res.ok, text: res.message });
+    });
+  };
+
   const titleTier = TIER_STYLES[current.title_tier] ?? TIER_STYLES.entry;
 
   // 本人が選んだ表示色（未設定なら現在ランク）
@@ -112,14 +137,17 @@ export default function LoginBonusCard({
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
               {claimed
                 ? `明日も続けると +${current.next_points}pt（最大${current.max_points}pt）`
-                : `今日受け取ると +${current.today_points}pt`}
+                : current.lucky_pending
+                  ? `ラッキーチャンス！ ${current.today_points}pt + ${current.lucky_min}〜${current.lucky_max}pt`
+                  : `今日受け取ると +${current.today_points}pt`}
               　· 最長 {current.longest_streak}日 · 通算 {current.total_days}日
             </p>
           </div>
 
-          <form action={action}>
+          <div>
             <button
-              type="submit"
+              type="button"
+              onClick={doClaim}
               disabled={pending || claimed}
               className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               style={{
@@ -136,10 +164,49 @@ export default function LoginBonusCard({
                 ? "受け取り済み"
                 : pending
                   ? "受け取り中..."
-                  : `ログインボーナスを受け取る`}
+                  : current.lucky_pending
+                    ? "ルーレットを回す 🎰"
+                    : "ログインボーナスを受け取る"}
             </button>
-          </form>
+          </div>
         </div>
+
+        {/* ポイントルーレット。受け取り前は ?? を出し、押すと数字が回る */}
+        {(rouletteTarget !== null || !claimed) && (
+          <div
+            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-3"
+            style={{
+              borderColor: rouletteLucky
+                ? "var(--brand-yellow)"
+                : "color-mix(in srgb, currentColor 12%, transparent)",
+            }}
+          >
+            <div className="min-w-0">
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-400">
+                {rouletteLucky ? "Lucky Chance" : "Point Roulette"}
+              </p>
+              <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                {rouletteTarget !== null
+                  ? rouletteLucky
+                    ? "ラッキーチャンス当選！連続が切れても救済ボーナスが出ました"
+                    : "今日の獲得ポイント"
+                  : current.lucky_pending
+                    ? `連続が途切れています。今日はランダムで ${current.lucky_min}〜${current.lucky_max}pt の救済ボーナス付き`
+                    : "受け取ると回ります"}
+              </p>
+            </div>
+            <PointRoulette
+              target={rouletteTarget}
+              min={
+                current.lucky_pending
+                  ? current.today_points + current.lucky_min
+                  : ROULETTE_FLOOR
+              }
+              max={current.today_points + current.lucky_max}
+              lucky={rouletteLucky}
+            />
+          </div>
+        )}
 
         {/* 直近7日 */}
         <div className="flex gap-1.5">
@@ -164,17 +231,17 @@ export default function LoginBonusCard({
           ))}
         </div>
 
-        {state && !state.ok && (
+        {message && !message.ok && (
           <p className="text-xs" style={{ color: "var(--brand-orange)" }}>
-            {state.message}
+            {message.text}
           </p>
         )}
-        {state?.ok && state.result?.newly_claimed && (
+        {message?.ok && claimed && (
           <p
             className="text-sm font-medium"
             style={{ color: "var(--brand-green)" }}
           >
-            🎉 {state.message}
+            🎉 {message.text}
           </p>
         )}
       </div>
