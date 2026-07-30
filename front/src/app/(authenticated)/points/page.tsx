@@ -21,6 +21,21 @@ type PointsData = {
   }[];
 };
 
+/** PointLog.reason を日本語のラベルにする */
+function reasonLabel(reason: string): string {
+  if (reason === "activity") return "活動実績承認";
+  if (reason.startsWith("manual:")) return reason.slice("manual:".length);
+  if (reason.startsWith("login_bonus:"))
+    return `ログインボーナス（${reason.slice("login_bonus:".length)}）`;
+  if (reason.startsWith("morning_task_undo:"))
+    return `朝活タスク取り消し（${reason.slice("morning_task_undo:".length)}）`;
+  if (reason.startsWith("morning_task:"))
+    return `朝活タスク（${reason.slice("morning_task:".length)}）`;
+  if (reason.startsWith("morning:"))
+    return `朝活チェックイン（${reason.slice("morning:".length)}）`;
+  return "時間ボーナス";
+}
+
 type Achievement = {
   id: string;
   label: string;
@@ -205,9 +220,7 @@ export default async function PointsPage() {
               >
                 <div className="flex flex-col gap-0.5">
                   <p className="text-sm text-zinc-700 dark:text-zinc-300">
-                    {log.reason === "activity"
-                      ? "活動実績承認"
-                      : "時間ボーナス"}
+                    {reasonLabel(log.reason)}
                   </p>
                   <p className="text-xs text-zinc-400">
                     {log.period_year}年{log.period_month}月

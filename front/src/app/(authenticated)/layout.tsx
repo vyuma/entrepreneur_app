@@ -147,6 +147,30 @@ function EventsIcon(props: IconProps) {
   );
 }
 
+function MorningIcon(props: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      {/* 地平線から昇る朝日 */}
+      <circle cx="12" cy="14" r="3.5" />
+      <path d="M2.5 18h19" />
+      <path d="M12 6.5V4.5" />
+      <path d="M5.6 7.6 4.2 6.2" />
+      <path d="M18.4 7.6l1.4-1.4" />
+      <path d="M3.5 14h-1" />
+      <path d="M21.5 14h-1" />
+    </svg>
+  );
+}
+
 function AdminIcon(props: IconProps) {
   return (
     <svg
@@ -194,6 +218,7 @@ export default async function AuthenticatedLayout({
 
   const navItems = [
     { href: "/dashboard", label: "ダッシュボード", Icon: DashboardIcon },
+    { href: "/morning", label: "朝活", Icon: MorningIcon },
     { href: "/events", label: "NueStar", Icon: EventsIcon },
     { href: "/competitions", label: "コンペ", Icon: CompetitionsIcon },
     { href: "/achievements", label: "成果", Icon: AchievementsIcon },

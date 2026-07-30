@@ -11,6 +11,24 @@ function reasonLabel(reason: string) {
   if (reason.startsWith("login_bonus:")) {
     return { text: `ログインボーナス（${reason.slice(12)}）`, manual: false };
   }
+  if (reason.startsWith("morning_task_undo:")) {
+    return {
+      text: `朝活タスク取り消し（${reason.slice("morning_task_undo:".length)}）`,
+      manual: false,
+    };
+  }
+  if (reason.startsWith("morning_task:")) {
+    return {
+      text: `朝活タスク（${reason.slice("morning_task:".length)}）`,
+      manual: false,
+    };
+  }
+  if (reason.startsWith("morning:")) {
+    return {
+      text: `朝活チェックイン（${reason.slice("morning:".length)}）`,
+      manual: false,
+    };
+  }
   return { text: reason, manual: false };
 }
 

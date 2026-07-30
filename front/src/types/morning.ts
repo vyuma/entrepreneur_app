@@ -1,0 +1,109 @@
+export type MorningTip = {
+  id: string;
+  title: string;
+  body: string;
+  sort_order: number;
+  is_active: boolean;
+};
+
+export type MorningTask = {
+  id: string;
+  title: string;
+  description: string | null;
+  sort_order: number;
+  is_active: boolean;
+};
+
+/** 当日の消化状況つきタスク */
+export type MorningTaskState = {
+  id: string;
+  title: string;
+  description: string | null;
+  done: boolean;
+};
+
+export type MorningSetting = {
+  enabled: boolean;
+  start_minute: number;
+  end_minute: number;
+  base_points: number;
+  task_points: number;
+  streak_bonus_per_day: number;
+  streak_bonus_max: number;
+};
+
+export type MorningStatus = {
+  enabled: boolean;
+  start_at: string;
+  end_at: string;
+  now_at: string;
+  is_open: boolean;
+  checked_in_today: boolean;
+  checkin_at: string | null;
+  streak: number;
+  longest_streak: number;
+  total_days: number;
+  today_points: number;
+  base_points: number;
+  task_points: number;
+  next_points: number;
+  recent_dates: string[];
+  tasks: MorningTaskState[];
+  tips: MorningTip[];
+  done_count: number;
+};
+
+export type CheckinResult = {
+  newly_checked_in: boolean;
+  points: number;
+  streak: number;
+  status: MorningStatus;
+};
+
+export type ToggleResult = {
+  delta_points: number;
+  status: MorningStatus;
+};
+
+export const EMPTY_MORNING_STATUS: MorningStatus = {
+  enabled: true,
+  start_at: "06:00",
+  end_at: "08:00",
+  now_at: "00:00",
+  is_open: false,
+  checked_in_today: false,
+  checkin_at: null,
+  streak: 0,
+  longest_streak: 0,
+  total_days: 0,
+  today_points: 20,
+  base_points: 20,
+  task_points: 5,
+  next_points: 22,
+  recent_dates: [],
+  tasks: [],
+  tips: [],
+  done_count: 0,
+};
+
+export const DEFAULT_MORNING_SETTING: MorningSetting = {
+  enabled: true,
+  start_minute: 360,
+  end_minute: 480,
+  base_points: 20,
+  task_points: 5,
+  streak_bonus_per_day: 2,
+  streak_bonus_max: 20,
+};
+
+/** 0時からの経過分を "HH:MM" に変換する（<input type="time"> 用） */
+export function minuteToTime(minute: number): string {
+  const m = ((minute % 1440) + 1440) % 1440;
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+}
+
+/** "HH:MM" を0時からの経過分に変換する */
+export function timeToMinute(time: string): number {
+  const [h, m] = time.split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+}

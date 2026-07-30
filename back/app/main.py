@@ -17,6 +17,7 @@ from app.routers import (
     login_bonus,
     tier,
     nuestar_events,
+    morning,
 )
 
 
@@ -53,6 +54,7 @@ app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 app.include_router(login_bonus.router, prefix="/api/login-bonus", tags=["login-bonus"])
 app.include_router(tier.router, prefix="/api/tier", tags=["tier"])
 app.include_router(nuestar_events.router, prefix="/api/events", tags=["nuestar-events"])
+app.include_router(morning.router, prefix="/api/morning", tags=["morning"])
 
 
 @app.get("/health")

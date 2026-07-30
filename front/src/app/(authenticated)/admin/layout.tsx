@@ -6,6 +6,7 @@ const TABS = [
   { href: "/admin/users", label: "ユーザー" },
   { href: "/admin/points", label: "ポイント" },
   { href: "/admin/events", label: "イベント" },
+  { href: "/admin/morning", label: "朝活" },
   { href: "/admin/logs", label: "監査ログ" },
 ];
 
