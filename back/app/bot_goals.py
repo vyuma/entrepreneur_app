@@ -6,7 +6,7 @@
 目標には TODO を紐づけられる（作成直後のボタンか `/todo` の目標オプションから）。
 
 タイトルはコマンドのテキスト引数で受け取り、詳細と期限はモーダルから任意で入力する。
-編集・達成はアプリ側（/goals ページ）でも行える。
+編集・達成はアプリ側（/todos ページ。目標と TODO は同じ画面）でも行える。
 """
 
 import logging
@@ -86,7 +86,7 @@ def _goal_embed(goal: Goal, progress: str | None = None) -> discord.Embed:
     embed.add_field(name="期限", value=_deadline_text(goal), inline=True)
     if progress:
         embed.add_field(name="TODO の進捗", value=progress, inline=True)
-    embed.set_footer(text=f"アプリで編集・達成: {settings.APP_URL}/goals")
+    embed.set_footer(text=f"アプリで編集・達成: {settings.APP_URL}/todos")
     return embed
 
 
@@ -257,7 +257,7 @@ class GoalActionView(discord.ui.View):
             discord.ui.Button(
                 label="アプリで開く",
                 style=discord.ButtonStyle.link,
-                url=f"{settings.APP_URL}/goals",
+                url=f"{settings.APP_URL}/todos",
             )
         )
 
@@ -413,12 +413,12 @@ class GoalCog(commands.Cog):
                     embed.set_footer(
                         text=(
                             f"ほか {len(items) - LIST_LIMIT} 件。"
-                            f"全部見る: {settings.APP_URL}/goals"
+                            f"全部見る: {settings.APP_URL}/todos"
                         )
                     )
                 else:
                     embed.set_footer(
-                        text=f"アプリで編集・達成: {settings.APP_URL}/goals"
+                        text=f"アプリで編集・達成: {settings.APP_URL}/todos"
                     )
 
             await interaction.response.send_message(embed=embed, ephemeral=True)

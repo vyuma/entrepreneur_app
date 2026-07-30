@@ -156,9 +156,15 @@ function sortTodos(items: Todo[]): Todo[] {
 export default function TodoList({
   todos,
   goals,
+  /**
+   * true にすると目標に紐づいていない TODO だけを表示する。
+   * 紐づいたものは目標カードの中に出るため、同じページで二重に並べない。
+   */
+  unlinkedOnly = false,
 }: {
   todos: Todo[];
   goals: Goal[];
+  unlinkedOnly?: boolean;
 }) {
   const goalTitle = (id: string | null) =>
     id ? (goals.find((g) => g.id === id)?.title ?? null) : null;
@@ -275,8 +281,11 @@ export default function TodoList({
     });
   };
 
-  const open = items.filter((t) => !t.is_done);
-  const done = items.filter((t) => t.is_done);
+  const visible = unlinkedOnly
+    ? items.filter((t) => t.goal_id === null)
+    : items;
+  const open = visible.filter((t) => !t.is_done);
+  const done = visible.filter((t) => t.is_done);
 
   return (
     <div className="flex flex-col gap-6">
@@ -343,7 +352,7 @@ export default function TodoList({
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            未完了
+            {unlinkedOnly ? "目標に紐づかない TODO" : "未完了"}
           </h2>
           <span className="font-mono tabular-nums text-zinc-400">
             <span
@@ -354,13 +363,15 @@ export default function TodoList({
             >
               {done.length}
             </span>
-            <span className="text-sm"> / {items.length} 完了</span>
+            <span className="text-sm"> / {visible.length} 完了</span>
           </span>
         </div>
 
         {open.length === 0 ? (
           <p className="rounded-xl border border-dashed border-zinc-300 px-4 py-8 text-center text-sm text-zinc-400 dark:border-zinc-700">
-            未完了の TODO はありません 🎉
+            {unlinkedOnly
+              ? "目標に紐づかない TODO はありません"
+              : "未完了の TODO はありません 🎉"}
           </p>
         ) : (
           <ul className="flex flex-col gap-2">

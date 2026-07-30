@@ -3,7 +3,8 @@
 - /todo <タイトル> [優先度] [目標] : TODO を作成し、続けて詳細入力のUI（モーダル）を出す
 - /todos                           : 自分の未完了 TODO を一覧表示
 
-目標を指定すると、その目標に紐づく TODO として進捗に数えられる。
+目標はコマンドの `目標` オプション（候補から選択）でも、作成後に出るプルダウン
+でも選べる。紐づけた TODO はその目標の進捗として数えられる。
 
 タイトルはコマンドのテキスト引数で受け取り、詳細はモーダルから任意で入力する。
 チェックと編集はアプリ側（/todos ページ）でも行える。
@@ -39,6 +40,29 @@ PRIORITY_MARKS = {
 
 def _priority_mark(priority: int) -> str:
     return PRIORITY_MARKS.get(priority, PRIORITY_MARKS[service.PRIORITY_NORMAL])
+
+
+# 目標プルダウンで「紐づけない」を表す値。Discord は空文字の value を許さない
+NO_GOAL_VALUE = "__none__"
+# プルダウンに出せる選択肢の上限（Discord の制限）
+GOAL_OPTION_LIMIT = 24
+
+
+def _active_goals(db, user_id: str, current_goal_id: str | None = None) -> list[Goal]:
+    """プルダウンに出す目標。進行中のものと、いま紐づいている目標。"""
+    goals = (
+        db.query(Goal)
+        .filter(Goal.user_id == user_id, Goal.status == GOAL_ACTIVE)
+        .order_by(Goal.created_at.desc())
+        .limit(GOAL_OPTION_LIMIT)
+        .all()
+    )
+    # 達成済みの目標に紐づいている場合も、現在値として選択肢に残す
+    if current_goal_id and all(g.id != current_goal_id for g in goals):
+        current = db.query(Goal).filter(Goal.id == current_goal_id).first()
+        if current is not None:
+            goals.insert(0, current)
+    return goals
 
 
 def _goal_title(db, goal_id: str | None) -> str | None:
@@ -142,7 +166,7 @@ class TodoDetailModal(discord.ui.Modal, title="TODO の詳細を入力"):
             await interaction.response.send_message(
                 content="TODO を更新しました。",
                 embed=_todo_embed(todo, _goal_title(db, todo.goal_id)),
-                view=TodoActionView(todo.id),
+                view=TodoActionView(todo, _active_goals(db, user.id, todo.goal_id)),
                 ephemeral=True,
             )
         except service.TodoError as exc:
@@ -156,12 +180,81 @@ class TodoDetailModal(discord.ui.Modal, title="TODO の詳細を入力"):
             db.close()
 
 
-class TodoActionView(discord.ui.View):
-    """作成直後に出すボタン。詳細入力と完了操作ができる。"""
+class TodoGoalSelect(discord.ui.Select):
+    """紐づける目標を選ぶプルダウン。モーダルには置けないのでメッセージ側に出す。"""
 
-    def __init__(self, todo_id: str):
-        super().__init__(timeout=600)
+    def __init__(self, todo_id: str, goals: list[Goal], current_goal_id: str | None):
         self.todo_id = todo_id
+        options = [
+            discord.SelectOption(
+                label="目標に紐づけない",
+                value=NO_GOAL_VALUE,
+                default=current_goal_id is None,
+            )
+        ]
+        for goal in goals:
+            options.append(
+                discord.SelectOption(
+                    label=goal.title[:100],
+                    value=goal.id,
+                    emoji="🎯",
+                    default=goal.id == current_goal_id,
+                )
+            )
+        super().__init__(placeholder="目標を選ぶ", options=options, max_values=1)
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        db = SessionLocal()
+        try:
+            user = _find_user(db, str(interaction.user.id))
+            if user is None:
+                await interaction.response.send_message(
+                    "アプリにログインしていません。", ephemeral=True
+                )
+                return
+
+            chosen = self.values[0]
+            todo = service.update_todo(
+                db,
+                user.id,
+                self.todo_id,
+                # 空文字を渡すと紐づけが外れる
+                goal_id="" if chosen == NO_GOAL_VALUE else chosen,
+            )
+            goal_title = _goal_title(db, todo.goal_id)
+            # 同じメッセージを書き換えて、選択が反映された状態を見せる
+            await interaction.response.edit_message(
+                content=(
+                    f"目標「{goal_title}」に紐づけました。"
+                    if goal_title
+                    else "目標の紐づけを外しました。"
+                ),
+                embed=_todo_embed(todo, goal_title),
+                view=TodoActionView(
+                    todo, _active_goals(db, user.id, todo.goal_id)
+                ),
+            )
+        except service.TodoError as exc:
+            await interaction.response.send_message(str(exc), ephemeral=True)
+        except Exception:
+            logger.exception("Failed to link todo %s to goal", self.todo_id)
+            await interaction.response.send_message(
+                "紐づけに失敗しました。", ephemeral=True
+            )
+        finally:
+            db.close()
+
+
+class TodoActionView(discord.ui.View):
+    """作成直後に出すUI。詳細入力・完了操作・目標の紐づけができる。"""
+
+    def __init__(self, todo: Todo, goals: list[Goal] | None = None):
+        super().__init__(timeout=600)
+        self.todo_id = todo.id
+
+        # 目標が1つも無いときはプルダウンを出さない（Discord が空の選択肢を拒否する）
+        if goals:
+            self.add_item(TodoGoalSelect(todo.id, goals, todo.goal_id))
 
         detail_button = discord.ui.Button(
             label="詳細を入力", style=discord.ButtonStyle.primary, emoji="📝"
@@ -279,10 +372,11 @@ class TodoCog(commands.Cog):
             # タイトルだけで作成は完了している。詳細はここから任意で足せる。
             await interaction.response.send_message(
                 content=(
-                    "TODO を作成しました。詳細を足したい場合は「詳細を入力」を押してください。"
+                    "TODO を作成しました。詳細は「詳細を入力」から、"
+                    "紐づける目標は下のプルダウンから選べます。"
                 ),
                 embed=_todo_embed(todo, _goal_title(db, todo.goal_id)),
-                view=TodoActionView(todo.id),
+                view=TodoActionView(todo, _active_goals(db, user.id, todo.goal_id)),
                 ephemeral=True,
             )
         except service.TodoError as exc:
