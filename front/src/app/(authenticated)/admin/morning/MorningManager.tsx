@@ -120,6 +120,30 @@ function SettingsForm({ setting }: { setting: MorningSetting }) {
           label="チェックインの基礎ポイント"
           name="base_points"
           defaultValue={setting.base_points}
+          hint="ルーレットが無効なときに使う固定値"
+        />
+
+        <label className="flex items-center gap-2 text-sm text-zinc-700 sm:col-span-2 dark:text-zinc-300">
+          <input
+            type="checkbox"
+            name="roulette_enabled"
+            defaultChecked={setting.roulette_enabled}
+            className="h-4 w-4 accent-[var(--brand-green)]"
+          />
+          毎日のポイントルーレットを有効にする
+        </label>
+        <p className="text-xs text-zinc-500 sm:col-span-2 dark:text-zinc-400">
+          チェックインのたびに、下の範囲からその日の基礎ポイントを抽選します。
+        </p>
+        <NumberField
+          label="ルーレット 下限pt"
+          name="roulette_min_points"
+          defaultValue={setting.roulette_min_points}
+        />
+        <NumberField
+          label="ルーレット 上限pt"
+          name="roulette_max_points"
+          defaultValue={setting.roulette_max_points}
         />
         <NumberField
           label="タスク1件あたりのポイント"

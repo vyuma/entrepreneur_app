@@ -40,19 +40,23 @@ class MorningSetting(Base):
     # 受付時間帯。0時からの経過分で持つ（6:00 = 360, 8:00 = 480）
     start_minute: Mapped[int] = mapped_column(Integer, nullable=False, default=360)
     end_minute: Mapped[int] = mapped_column(Integer, nullable=False, default=480)
-    # チェックインの基礎ポイント
-    base_points: Mapped[int] = mapped_column(Integer, nullable=False, default=20)
+    # チェックインの基礎ポイント（ルーレットが無効なときに使う固定値）
+    base_points: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
+    # 毎日のルーレット: チェックイン時に min〜max のランダムな基礎ポイントを引く
+    roulette_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    roulette_min_points: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    roulette_max_points: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
     # タスク1件消化ごとのポイント
-    task_points: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
+    task_points: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     # 連続日数1日につき上乗せするポイントと、その上限
-    streak_bonus_per_day: Mapped[int] = mapped_column(Integer, nullable=False, default=2)
-    streak_bonus_max: Mapped[int] = mapped_column(Integer, nullable=False, default=20)
+    streak_bonus_per_day: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    streak_bonus_max: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
     # ラッキーチャンス: 連続が途切れた後の復帰チェックインでランダムに貰える救済ボーナス
     lucky_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    lucky_min_points: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
-    lucky_max_points: Mapped[int] = mapped_column(Integer, nullable=False, default=30)
+    lucky_min_points: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
+    lucky_max_points: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
     # 朝活宣言をDiscordに投稿したときのポイントと、その定型文
-    post_points: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
+    post_points: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
     post_template: Mapped[str] = mapped_column(Text, nullable=False, default="")
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
@@ -104,6 +108,8 @@ class MorningCheckin(Base):
     checkin_minute: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     # ラッキーチャンスで上乗せされたポイント（0なら発生していない）。points に含む
     lucky_points: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # その日のルーレットで出た基礎ポイント。points に含む
+    roulette_points: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 

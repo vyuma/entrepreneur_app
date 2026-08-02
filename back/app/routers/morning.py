@@ -61,6 +61,9 @@ class SettingOut(BaseModel):
     start_minute: int
     end_minute: int
     base_points: int
+    roulette_enabled: bool
+    roulette_min_points: int
+    roulette_max_points: int
     task_points: int
     streak_bonus_per_day: int
     streak_bonus_max: int
@@ -89,6 +92,10 @@ class MorningStatus(BaseModel):
     # 今日のチェックインで得られる（得た）ポイント
     today_points: int
     base_points: int
+    # 毎日のルーレット（基礎ポイントの抽選）
+    roulette_enabled: bool
+    roulette_min: int
+    roulette_max: int
     task_points: int
     # 明日も続けた場合のポイント
     next_points: int
@@ -114,6 +121,8 @@ class CheckinResult(BaseModel):
     streak: int
     # ラッキーチャンスで上乗せされた分（0なら発生していない）
     lucky_points: int
+    # ルーレットで出た基礎ポイント
+    roulette_points: int
     status: MorningStatus
 
 
@@ -142,6 +151,9 @@ class SettingUpdate(BaseModel):
     start_minute: int = Field(ge=0, le=1439)
     end_minute: int = Field(ge=0, le=1440)
     base_points: int = Field(ge=0, le=1000)
+    roulette_enabled: bool = True
+    roulette_min_points: int = Field(default=1, ge=0, le=1000)
+    roulette_max_points: int = Field(default=5, ge=0, le=1000)
     task_points: int = Field(ge=0, le=1000)
     streak_bonus_per_day: int = Field(ge=0, le=1000)
     streak_bonus_max: int = Field(ge=0, le=10000)
@@ -214,6 +226,9 @@ def _build_status(db: Session, user) -> MorningStatus:
         if checkin
         else service.points_for(setting, effective_streak),
         base_points=setting.base_points,
+        roulette_enabled=setting.roulette_enabled,
+        roulette_min=service.base_range(setting)[0],
+        roulette_max=service.base_range(setting)[1],
         task_points=setting.task_points,
         next_points=service.points_for(setting, effective_streak + 1),
         recent_dates=service.recent_dates(db, user.id),
@@ -255,6 +270,7 @@ def do_checkin(discord_id: str, db: Session = Depends(get_db), _=Depends(verify_
         points=record.points,
         streak=record.streak,
         lucky_points=record.lucky_points,
+        roulette_points=record.roulette_points,
         status=_build_status(db, user),
     )
 
@@ -332,6 +348,11 @@ def admin_update_settings(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="開始時刻と終了時刻を同じにはできません",
+        )
+    if body.roulette_min_points > body.roulette_max_points:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="ルーレットの下限が上限を超えています",
         )
     if body.lucky_min_points > body.lucky_max_points:
         raise HTTPException(

@@ -83,8 +83,28 @@ def streak_bonus(setting: MorningSetting, streak: int) -> int:
     return min(bonus, setting.streak_bonus_max)
 
 
-def points_for(setting: MorningSetting, streak: int) -> int:
-    return setting.base_points + streak_bonus(setting, streak)
+def roll_roulette(setting: MorningSetting) -> int:
+    """その日の基礎ポイントを決めるルーレット。無効なら固定の base_points。"""
+    if not setting.roulette_enabled:
+        return setting.base_points
+    low = max(setting.roulette_min_points, 0)
+    high = max(setting.roulette_max_points, low)
+    return random.randint(low, high)
+
+
+def base_range(setting: MorningSetting) -> tuple[int, int]:
+    """基礎ポイントの取りうる範囲 (下限, 上限)。固定なら同じ値が返る。"""
+    if not setting.roulette_enabled:
+        return setting.base_points, setting.base_points
+    low = max(setting.roulette_min_points, 0)
+    return low, max(setting.roulette_max_points, low)
+
+
+def points_for(setting: MorningSetting, streak: int, base: int | None = None) -> int:
+    """基礎ポイント + 連続ボーナス。base 未指定ならルーレットの上限で見積もる。"""
+    if base is None:
+        base = base_range(setting)[1]
+    return base + streak_bonus(setting, streak)
 
 
 def roll_lucky(setting: MorningSetting) -> int:
@@ -206,7 +226,9 @@ def checkin(db: Session, user: User) -> tuple[MorningCheckin, bool]:
     # 一度でも朝活したことがある人が連続を切らして戻ってきたらラッキーチャンス。
     # 初回チェックインの人は対象外（切れた連続が無いので）。
     lucky = 0 if continued or last is None else roll_lucky(setting)
-    points = points_for(setting, streak) + lucky
+    # その日の基礎ポイントはルーレットで決まる（無効なら固定値）
+    base = roll_roulette(setting)
+    points = points_for(setting, streak, base) + lucky
 
     record = MorningCheckin(
         user_id=user.id,
@@ -215,9 +237,12 @@ def checkin(db: Session, user: User) -> tuple[MorningCheckin, bool]:
         streak=streak,
         checkin_minute=minute,
         lucky_points=lucky,
+        roulette_points=base,
     )
     db.add(record)
     reason = f"morning:{streak}日連続 {format_minute(minute)}"
+    if setting.roulette_enabled:
+        reason += f" ルーレット{base}pt"
     if lucky:
         reason += f" +ラッキー{lucky}pt"
     db.add(

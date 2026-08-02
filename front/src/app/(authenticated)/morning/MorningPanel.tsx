@@ -144,7 +144,7 @@ export default function MorningPanel({ status }: { status: MorningStatus }) {
                   ? "チェックイン済み"
                   : !current.is_open
                     ? "受付時間外"
-                    : current.lucky_pending
+                    : current.lucky_pending || current.roulette_enabled
                       ? "ルーレットを回す 🎰"
                       : `朝活チェックイン（+${current.today_points}pt）`}
               </button>
@@ -157,7 +157,9 @@ export default function MorningPanel({ status }: { status: MorningStatus }) {
                       ? `次の受付は ${current.start_at} から`
                       : current.lucky_pending
                         ? `ラッキーチャンス！ ${current.today_points}pt + ${current.lucky_min}〜${current.lucky_max}pt`
-                        : `基礎 ${current.base_points}pt + 連続ボーナス`}
+                        : current.roulette_enabled
+                          ? `基礎 ${current.roulette_min}〜${current.roulette_max}pt のルーレット + 連続ボーナス`
+                          : `基礎 ${current.base_points}pt + 連続ボーナス`}
               </p>
             </div>
           </div>
@@ -183,7 +185,9 @@ export default function MorningPanel({ status }: { status: MorningStatus }) {
                       : "今朝の獲得ポイント"
                     : current.lucky_pending
                       ? `連続が途切れています。今日はランダムで ${current.lucky_min}〜${current.lucky_max}pt の救済ボーナス付き`
-                      : "チェックインすると回ります"}
+                      : current.roulette_enabled
+                        ? `チェックインすると回ります。基礎ポイントは毎日 ${current.roulette_min}〜${current.roulette_max}pt`
+                        : "チェックインすると回ります"}
                 </p>
               </div>
               <PointRoulette
@@ -191,7 +195,10 @@ export default function MorningPanel({ status }: { status: MorningStatus }) {
                 min={
                   current.lucky_pending
                     ? current.today_points + current.lucky_min
-                    : current.base_points
+                    : // today_points はルーレット上限での見積もりなので、
+                      // 下限は取りうる幅の分だけ引いて出す
+                      current.today_points -
+                      (current.roulette_max - current.roulette_min)
                 }
                 max={
                   current.lucky_pending

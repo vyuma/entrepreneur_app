@@ -5,6 +5,7 @@ from discord.ext import commands, tasks
 
 from app.bot_competitions import setup_competition_commands
 from app.bot_goals import setup_goal_commands
+from app.bot_time import setup_time_commands
 from app.bot_todos import setup_todo_commands
 from app.core import discord as discord_api
 from app.core.config import settings
@@ -212,12 +213,13 @@ class EntrepreneurBot(commands.Bot):
         await self._restore_pending_views()
         self.activity_poll.start()
         try:
-            # TODO・目標の Cog を先に登録しておく。コマンドのギルド同期は
+            # TODO・目標・時間報告の Cog を先に登録しておく。コマンドのギルド同期は
             # setup_competition_commands の最後でまとめて行われる。
             await setup_todo_commands(self)
             await setup_goal_commands(self)
+            await setup_time_commands(self)
         except Exception:
-            logger.exception("Failed to register todo/goal commands")
+            logger.exception("Failed to register todo/goal/time commands")
         try:
             await setup_competition_commands(self)
         except Exception:

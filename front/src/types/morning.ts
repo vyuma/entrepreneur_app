@@ -29,6 +29,9 @@ export type MorningSetting = {
   start_minute: number;
   end_minute: number;
   base_points: number;
+  roulette_enabled: boolean;
+  roulette_min_points: number;
+  roulette_max_points: number;
   task_points: number;
   streak_bonus_per_day: number;
   streak_bonus_max: number;
@@ -52,6 +55,9 @@ export type MorningStatus = {
   total_days: number;
   today_points: number;
   base_points: number;
+  roulette_enabled: boolean;
+  roulette_min: number;
+  roulette_max: number;
   task_points: number;
   next_points: number;
   recent_dates: string[];
@@ -72,6 +78,7 @@ export type CheckinResult = {
   points: number;
   streak: number;
   lucky_points: number;
+  roulette_points: number;
   status: MorningStatus;
 };
 
@@ -97,20 +104,23 @@ export const EMPTY_MORNING_STATUS: MorningStatus = {
   streak: 0,
   longest_streak: 0,
   total_days: 0,
-  today_points: 20,
-  base_points: 20,
-  task_points: 5,
-  next_points: 22,
+  today_points: 5,
+  base_points: 5,
+  roulette_enabled: true,
+  roulette_min: 1,
+  roulette_max: 5,
+  task_points: 1,
+  next_points: 6,
   recent_dates: [],
   tasks: [],
   tips: [],
   done_count: 0,
   lucky_pending: false,
   lucky_enabled: true,
-  lucky_min: 10,
-  lucky_max: 30,
+  lucky_min: 3,
+  lucky_max: 10,
   posted_today: false,
-  post_points: 10,
+  post_points: 3,
   post_draft: "",
 };
 
@@ -118,14 +128,17 @@ export const DEFAULT_MORNING_SETTING: MorningSetting = {
   enabled: true,
   start_minute: 360,
   end_minute: 480,
-  base_points: 20,
-  task_points: 5,
-  streak_bonus_per_day: 2,
-  streak_bonus_max: 20,
+  base_points: 5,
+  roulette_enabled: true,
+  roulette_min_points: 1,
+  roulette_max_points: 5,
+  task_points: 1,
+  streak_bonus_per_day: 1,
+  streak_bonus_max: 5,
   lucky_enabled: true,
-  lucky_min_points: 10,
-  lucky_max_points: 30,
-  post_points: 10,
+  lucky_min_points: 3,
+  lucky_max_points: 10,
+  post_points: 3,
   post_template: "",
 };
 

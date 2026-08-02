@@ -7,6 +7,9 @@ Bot のメッセージ監視とスラッシュコマンドの両方から使う�
 import random
 import re
 
+# 1回に記録できる上限（12時間）。誤記録が積み上がらないように頭打ちにする。
+MAX_MINUTES = 720
+
 
 def parse_minutes(text: str) -> int:
     """テキストから時間・分を抽出して合計分数を返す（0なら抽出失敗）"""
@@ -37,7 +40,7 @@ def parse_minutes(text: str) -> int:
         if any(s <= match.start() < e for s, e in consumed_spans):
             continue
         total += int(match.group(1))
-    return min(total, 720)  # 最大12時間(720分)
+    return min(total, MAX_MINUTES)
 
 
 # 記録された分数に応じた応援メッセージ。降順に評価する。
